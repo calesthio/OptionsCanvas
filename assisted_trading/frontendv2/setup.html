@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OptionsCanvas — Setup</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1f2630;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #2f81f7;
+    --accent-hover: #4493f8;
+    --success: #2ea043;
+    --danger: #f85149;
+    --warning: #d29922;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+    position: relative; }
+  header .logo { width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #6e40c9); }
+  header h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  .tagline { color: var(--text-dim); margin: 0 0 32px; font-size: 14px; }
+
+  /* Close button — visible only when the wizard is being revisited
+     (i.e. setup is already complete and the user can safely bail out). */
+  .close-btn {
+    position: absolute; top: 0; right: 0;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 18px; line-height: 1; cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .close-btn:hover { background: var(--panel); color: var(--text); border-color: var(--accent); }
+  .close-btn[hidden] { display: none; }
+
+  .stepper { display: flex; gap: 8px; margin-bottom: 32px; }
+  .step-dot { flex: 1; height: 6px; border-radius: 3px; background: var(--panel-2); transition: background .2s; }
+  .step-dot.active { background: var(--accent); }
+  .step-dot.done { background: var(--success); }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 16px; }
+  .card h2 { font-size: 18px; margin: 0 0 6px; }
+  .card .desc { color: var(--text-dim); font-size: 14px; margin: 0 0 20px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+  .field input[type="text"], .field input[type="password"], .field textarea {
+    width: 100%; padding: 10px 12px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; font-family: var(--mono); font-size: 13px;
+    outline: none; transition: border-color .15s;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { min-height: 80px; resize: vertical; }
+  .field .hint { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
+
+  .toggle-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-dim); }
+  .toggle-row input[type="checkbox"] { accent-color: var(--accent); }
+
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  button { font: inherit; cursor: pointer; padding: 10px 18px; border-radius: 6px; border: 1px solid transparent;
+    background: var(--accent); color: white; font-weight: 500; font-size: 14px; transition: background .15s; }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: var(--panel-2); color: var(--text); border-color: var(--border); }
+  button.secondary:hover { background: #2a313c; }
+  button.ghost { background: transparent; color: var(--text-dim); border-color: var(--border); }
+
+  .universe-options { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
+  .universe-options label.option { display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+    transition: border-color .15s, background .15s; }
+  .universe-options label.option:hover { border-color: var(--accent); }
+  .universe-options label.option.selected { border-color: var(--accent); background: rgba(47, 129, 247, 0.08); }
+  .universe-options input[type="radio"] { margin-top: 2px; accent-color: var(--accent); }
+  .universe-options .opt-title { font-weight: 500; margin-bottom: 2px; }
+  .universe-options .opt-sub { font-size: 13px; color: var(--text-dim); }
+
+  .alert { padding: 12px 14px; border-radius: 6px; font-size: 13px; margin-top: 12px; display: none; }
+  .alert.show { display: block; }
+  .alert.success { background: rgba(46, 160, 67, 0.12); border: 1px solid rgba(46, 160, 67, 0.4); color: #56d364; }
+  .alert.error   { background: rgba(248, 81, 73, 0.12); border: 1px solid rgba(248, 81, 73, 0.4); color: #ff7b72; }
+  .alert.info    { background: rgba(47, 129, 247, 0.10); border: 1px solid rgba(47, 129, 247, 0.4); color: #79c0ff; }
+
+  .progress { margin-top: 14px; font-family: var(--mono); font-size: 12px;
+    max-height: 240px; overflow-y: auto; background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px; display: none; }
+  .progress.show { display: block; }
+  .progress .line { padding: 2px 0; }
+  .progress .ok { color: #56d364; }
+  .progress .skip { color: var(--text-dim); }
+  .progress .warn { color: #d29922; }
+  .progress .err { color: #ff7b72; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code { font-family: var(--mono); font-size: 12px; background: var(--panel-2);
+    padding: 1px 6px; border-radius: 3px; }
+
+  .summary-list { list-style: none; padding: 0; margin: 12px 0; }
+  .summary-list li { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    margin-bottom: 6px; font-size: 13px; }
+  .summary-list .k { color: var(--text-dim); margin-right: 8px; }
+
+  /* Broker picker cards (step 1a) */
+  .broker-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .broker-card { display: flex; align-items: center; gap: 14px;
+    padding: 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--panel-2); cursor: pointer;
+    transition: border-color .15s, background .15s, transform .05s; text-align: left; width: 100%;
+    color: inherit; font: inherit; }
+  .broker-card:hover { border-color: var(--accent); background: rgba(47, 129, 247, 0.06); }
+  .broker-card:active { transform: scale(0.998); }
+  .broker-card-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #6e40c9);
+    display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; }
+  .broker-card-body { flex: 1; min-width: 0; }
+  .broker-card-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .broker-card-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .broker-card-tag { padding: 2px 6px; border-radius: 3px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.4px; font-size: 10px; }
+  .broker-card-tag.paper { background: rgba(139, 148, 158, 0.20); color: var(--text-dim); }
+  .broker-card-tag.live  { background: rgba(248, 81, 73, 0.18); color: #ff7b72; }
+  .broker-card-arrow { color: var(--text-dim); font-size: 18px; flex-shrink: 0; }
+  .broker-card .broker-card-notes { font-size: 12px; color: var(--text-dim); margin-top: 4px;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .loading-row { color: var(--text-dim); padding: 16px 0; display: flex; align-items: center; }
+
+  /* Back link (above form title) */
+  .ghost-link { background: none; border: none; color: var(--text-dim); cursor: pointer;
+    padding: 0 0 12px 0; font: inherit; font-size: 12px; }
+  .ghost-link:hover { color: var(--accent); }
+
+  /* Mode (paper/live) toggle */
+  .mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mode-option { display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; transition: border-color .15s, background .15s; }
+  .mode-option:hover { border-color: var(--accent); }
+  .mode-option input[type="radio"] { display: none; }
+  .mode-option:has(input:checked) { border-color: var(--accent); background: rgba(47, 129, 247, 0.08); }
+  .mode-label { font-weight: 600; font-size: 14px; }
+  .mode-sub { font-size: 11px; color: var(--text-dim); }
+
+  /* Broker-level notes + docs link in form view */
+  .broker-notes { font-size: 12px; color: var(--text-dim); padding: 10px 12px;
+    background: var(--panel-2); border-radius: 6px; border-left: 3px solid var(--accent); margin-top: 8px; }
+  .broker-docs { display: inline-block; margin-top: 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"></div>
+    <h1>OptionsCanvas Setup</h1>
+    <button class="close-btn" id="closeBtn" type="button"
+            title="Back to trading (Esc)" hidden aria-label="Close setup">×</button>
+  </header>
+  <p class="tagline">Three quick steps and you're trading. No terminal, no config files.</p>
+
+  <div class="stepper">
+    <div class="step-dot active" id="dot-1"></div>
+    <div class="step-dot" id="dot-2"></div>
+    <div class="step-dot" id="dot-3"></div>
+  </div>
+
+  <!-- STEP 1: pick broker + paste credentials. Everything below is rendered
+       dynamically from /api/setup/brokers. Adding a broker = adding a registry
+       entry on the server; no HTML or JS edits needed. -->
+  <div class="step active" id="step-1">
+
+    <!-- 1a: broker picker (default view) -->
+    <div class="card" id="step-1-picker">
+      <h2>Step 1 — Choose your broker</h2>
+      <p class="desc">Pick the broker you want OptionsCanvas to trade through. Paper mode is the default for all brokers.</p>
+      <div id="broker-cards" class="broker-cards">
+        <div class="loading-row"><span class="spinner"></span>Loading brokers...</div>
+      </div>
+    </div>
+
+    <!-- 1b: dynamic credential form (revealed after picking a broker) -->
+    <div class="card" id="step-1-form" hidden>
+      <button type="button" class="ghost-link" id="back-to-picker">← Pick a different broker</button>
+      <h2 id="form-title">Connect</h2>
+      <p class="desc" id="form-desc"></p>
+
+      <!-- Mode selector — only shown for brokers that support both paper and live -->
+      <div class="field" id="mode-field" hidden>
+        <label class="section-label">Mode</label>
+        <div class="mode-toggle">
+          <label class="mode-option">
+            <input type="radio" name="mode" value="paper" checked />
+            <span class="mode-label">Paper</span>
+            <span class="mode-sub">No real money</span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mode" value="live" />
+            <span class="mode-label">Live</span>
+            <span class="mode-sub">Real funded account</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="live-warning" class="alert" style="display: none; background: rgba(248, 81, 73, 0.12); border: 1px solid rgba(248, 81, 73, 0.4); color: #ff7b72;">
+        <b>Live mode selected.</b> Real money will move on every order. Make sure these are your <i>live</i> credentials (separate from paper) and that you understand options can lose 100% of premium.
+      </div>
+
+      <!-- Credential fields injected here from credentials_schema -->
+      <div id="credential-fields"></div>
+
+      <!-- Broker-level options (e.g. data_feed) — optional, injected if present -->
+      <div id="option-fields"></div>
+
+      <div class="hint" style="margin-bottom: 16px;">Stored locally in <code>config/config.json</code>. Never leaves your machine.</div>
+
+      <div id="broker-notes" class="broker-notes" hidden></div>
+      <a id="broker-docs" class="broker-docs" href="#" target="_blank" rel="noopener" hidden>Documentation →</a>
+
+      <div class="row" style="margin-top: 16px;">
+        <button id="btn-test">Test connection</button>
+        <button id="btn-save-keys" class="secondary" disabled>Save & continue →</button>
+      </div>
+
+      <div class="alert" id="alert-1"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Universe -->
+  <div class="step" id="step-2">
+    <div class="card">
+      <h2>Step 2 — Pick your trading universe</h2>
+      <p class="desc">
+        OptionsCanvas only trades symbols you've onboarded. We'll verify each ticker has a real, in-30-days options chain before adding it.
+      </p>
+
+      <div class="universe-options" id="universe-options">
+        <label class="option selected">
+          <input type="radio" name="universe" value="tier1" checked />
+          <div>
+            <div class="opt-title">Recommended (<span id="cnt-tier1">30</span> names)</div>
+            <div class="opt-sub">SPY, QQQ, NVDA, TSLA, Mag-7, top semis, sector ETFs. ~85% of US single-name option volume.</div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="universe" value="all" />
+          <div>
+            <div class="opt-title">Full universe (<span id="cnt-all">110</span> names)</div>
+            <div class="opt-sub">Adds financials, pharma, energy, consumer, China, vol, bonds. Onboarding takes ~2 minutes.</div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="universe" value="custom" />
+          <div style="flex: 1;">
+            <div class="opt-title">Custom watchlist</div>
+            <div class="opt-sub">Comma- or space-separated tickers.</div>
+            <textarea id="custom_symbols" placeholder="e.g. AAPL, MSFT, NVDA, AMD" style="margin-top: 8px; display: none;"></textarea>
+          </div>
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="btn-onboard">Onboard symbols</button>
+        <button id="btn-back-1" class="ghost">← Back</button>
+      </div>
+
+      <div class="progress" id="progress"></div>
+      <div class="alert" id="alert-2"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Finalize -->
+  <div class="step" id="step-3">
+    <div class="card">
+      <h2>Step 3 — Almost there</h2>
+      <p class="desc">Review and start the platform. You can always re-onboard symbols later from the CLI.</p>
+
+      <ul class="summary-list" id="summary">
+        <!-- filled by JS -->
+      </ul>
+
+      <div class="row">
+        <button id="btn-finalize">Start trading →</button>
+        <button id="btn-back-2" class="ghost">← Back</button>
+      </div>
+
+      <div class="alert" id="alert-3"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = {
+    step: 1,
+    keysSaved: false,
+    onboarded: null,    // {mode, total, stats}
+    tierCounts: null,
+    // Broker selection state — rendered entirely from /api/setup/brokers,
+    // mirrored 1:1 to the backend on test + save.
+    brokers: [],           // full registry array
+    selectedBroker: null,  // the meta dict for the currently picked broker
+    selectedMode: 'paper', // 'paper' | 'live'
+  };
+
+  // ---------- helpers ----------
+  function showStep(n) {
+    state.step = n;
+    for (let i = 1; i <= 3; i++) {
+      $("step-" + i).classList.toggle("active", i === n);
+      const dot = $("dot-" + i);
+      dot.classList.toggle("active", i === n);
+      dot.classList.toggle("done", i < n);
+    }
+  }
+
+  function alert(id, type, msg) {
+    const el = $("alert-" + id);
+    el.className = "alert show " + type;
+    el.textContent = msg;
+  }
+  function clearAlert(id) {
+    const el = $("alert-" + id);
+    el.className = "alert";
+    el.textContent = "";
+  }
+
+  async function api(path, body) {
+    const opts = { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json" } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    return await res.json();
+  }
+
+  // ---------- close / escape behavior ----------
+  // Allow users who revisit /setup (via the broker pill's "Switch broker"
+  // link) to bail back to the trading UI without re-doing setup. The X is
+  // hidden on true first-run (has_config: false) so users can't end up at
+  // the trading screen with no broker configured.
+  function bailToTradingUI() { window.location.href = "/"; }
+  $("closeBtn").addEventListener("click", bailToTradingUI);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("closeBtn").hidden) bailToTradingUI();
+  });
+
+  // ---------- load status + brokers ----------
+  Promise.all([api("/api/setup/status"), api("/api/setup/brokers")])
+    .then(([s, b]) => {
+      state.tierCounts = s.tier_counts;
+      if (s.tier_counts) {
+        $("cnt-tier1").textContent = s.tier_counts.tier1;
+        $("cnt-all").textContent = s.tier_counts.all;
+      }
+      if (s.has_config) {
+        state.keysSaved = true;
+        $("closeBtn").hidden = false;
+      }
+      state.brokers = b.brokers || [];
+      renderBrokerPicker();
+    })
+    .catch((e) => {
+      $("broker-cards").innerHTML =
+        `<div class="alert error show">Couldn't load broker list: ${e.message}</div>`;
+    });
+
+  // ---------- step 1a: broker picker ----------
+  function renderBrokerPicker() {
+    const wrap = $("broker-cards");
+    if (!state.brokers.length) {
+      wrap.innerHTML = `<div class="alert error show">No brokers registered.</div>`;
+      return;
+    }
+    wrap.innerHTML = state.brokers.map((b, idx) => {
+      const initials = (b.display_name || b.id).slice(0, 1).toUpperCase();
+      const tags = (b.supports_modes || [])
+        .map((m) => `<span class="broker-card-tag ${m}">${m}</span>`).join("");
+      const notes = b.notes
+        ? `<div class="broker-card-notes">${escapeHTML(b.notes)}</div>` : "";
+      return `
+        <button class="broker-card" data-broker-idx="${idx}" type="button">
+          <div class="broker-card-icon">${initials}</div>
+          <div class="broker-card-body">
+            <div class="broker-card-title">${escapeHTML(b.display_name)}</div>
+            <div class="broker-card-meta">${tags}</div>
+            ${notes}
+          </div>
+          <div class="broker-card-arrow">→</div>
+        </button>`;
+    }).join("");
+    wrap.querySelectorAll(".broker-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const idx = parseInt(card.dataset.brokerIdx, 10);
+        selectBroker(state.brokers[idx]);
+      });
+    });
+  }
+
+  // ---------- step 1b: render dynamic form for the picked broker ----------
+  function selectBroker(meta) {
+    state.selectedBroker = meta;
+    state.selectedMode = meta.supports_modes.includes("paper") ? "paper" : meta.supports_modes[0];
+
+    $("step-1-picker").hidden = true;
+    $("step-1-form").hidden = false;
+    clearAlert(1);
+    $("btn-save-keys").disabled = true;
+
+    $("form-title").textContent = `Connect ${meta.display_name}`;
+    $("form-desc").textContent = `Generate credentials in your ${meta.display_name} dashboard, then paste them below.`;
+
+    // Mode selector — only shown when the broker supports both paper and live.
+    const modes = meta.supports_modes || [];
+    const showMode = modes.includes("paper") && modes.includes("live");
+    $("mode-field").hidden = !showMode;
+    if (showMode) {
+      document.querySelectorAll('input[name="mode"]').forEach((r) => {
+        r.checked = r.value === state.selectedMode;
+      });
+      $("live-warning").style.display = state.selectedMode === "live" ? "block" : "none";
+    } else {
+      $("live-warning").style.display = "none";
+    }
+
+    // Credential fields — rendered from credentials_schema. Adding a new broker
+    // with new fields requires zero frontend code.
+    $("credential-fields").innerHTML = (meta.credentials_schema || [])
+      .map((f) => renderField(f, "cred"))
+      .join("");
+
+    // Broker-level options (e.g. Alpaca's data_feed dropdown).
+    const opts = meta.options || {};
+    const optionEntries = Object.entries(opts);
+    $("option-fields").innerHTML = optionEntries
+      .map(([key, spec]) => renderOptionField(key, spec))
+      .join("");
+
+    // Notes + docs.
+    if (meta.notes) {
+      $("broker-notes").textContent = meta.notes;
+      $("broker-notes").hidden = false;
+    } else {
+      $("broker-notes").hidden = true;
+    }
+    if (meta.docs_url) {
+      $("broker-docs").href = meta.docs_url;
+      $("broker-docs").textContent = `${meta.display_name} documentation →`;
+      $("broker-docs").hidden = false;
+    } else {
+      $("broker-docs").hidden = true;
+    }
+
+    // Wire field-level events so Save can be re-disabled on edit.
+    document.querySelectorAll('#credential-fields input, #option-fields input, #option-fields select')
+      .forEach((el) => el.addEventListener("input", () => {
+        $("btn-save-keys").disabled = true;
+        clearAlert(1);
+      }));
+  }
+
+  function renderField(f, group) {
+    const id = `${group}_${f.key}`;
+    const type = f.type === "password" ? "password"
+                : f.type === "number"  ? "number" : "text";
+    const placeholder = f.placeholder ? `placeholder="${escapeAttr(f.placeholder)}"` : "";
+    const value = f.default !== undefined ? `value="${escapeAttr(f.default)}"` : "";
+    const help = f.help ? `<div class="hint">${escapeHTML(f.help)}</div>` : "";
+    const req = f.required ? " *" : "";
+    return `
+      <div class="field">
+        <label for="${id}">${escapeHTML(f.label)}${req}</label>
+        <input id="${id}" data-key="${escapeAttr(f.key)}" type="${type}" ${placeholder} ${value}
+               autocomplete="off" spellcheck="false" />
+        ${help}
+      </div>`;
+  }
+
+  function renderOptionField(key, spec) {
+    const id = `opt_${key}`;
+    const help = spec.notes ? `<div class="hint">${escapeHTML(spec.notes)}</div>` : "";
+    const label = escapeHTML(spec.label || key);
+    if (Array.isArray(spec.choices)) {
+      const opts = spec.choices.map((c) =>
+        `<option value="${escapeAttr(c)}" ${c === spec.default ? "selected" : ""}>${escapeHTML(c)}</option>`
+      ).join("");
+      return `
+        <div class="field">
+          <label for="${id}">${label}</label>
+          <select id="${id}" data-key="${escapeAttr(key)}" style="width:100%;padding:10px 12px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;">
+            ${opts}
+          </select>
+          ${help}
+        </div>`;
+    }
+    const def = spec.default !== undefined ? `value="${escapeAttr(spec.default)}"` : "";
+    return `
+      <div class="field">
+        <label for="${id}">${label}</label>
+        <input id="${id}" data-key="${escapeAttr(key)}" type="text" ${def} autocomplete="off" />
+        ${help}
+      </div>`;
+  }
+
+  // Read the form values back into a {credentials, options, mode} triple.
+  function collectFormPayload() {
+    const meta = state.selectedBroker;
+    const credentials = {};
+    document.querySelectorAll('#credential-fields input').forEach((el) => {
+      credentials[el.dataset.key] = el.value.trim();
+    });
+    const options = {};
+    document.querySelectorAll('#option-fields input, #option-fields select').forEach((el) => {
+      options[el.dataset.key] = el.value;
+    });
+    // Mode: from the radios if shown, else the only supported mode.
+    let mode = state.selectedMode;
+    const checked = document.querySelector('input[name="mode"]:checked');
+    if (checked && !$("mode-field").hidden) mode = checked.value;
+    return { provider: meta.id, mode, credentials, options };
+  }
+
+  function validateRequired(payload) {
+    const meta = state.selectedBroker;
+    const missing = (meta.credentials_schema || [])
+      .filter((f) => f.required && !payload.credentials[f.key])
+      .map((f) => f.label);
+    return missing;
+  }
+
+  // ---------- back-to-picker ----------
+  $("back-to-picker").addEventListener("click", () => {
+    $("step-1-form").hidden = true;
+    $("step-1-picker").hidden = false;
+    state.selectedBroker = null;
+    clearAlert(1);
+  });
+
+  // ---------- mode-change live warning ----------
+  document.addEventListener("change", (e) => {
+    if (e.target && e.target.name === "mode") {
+      state.selectedMode = e.target.value;
+      $("live-warning").style.display = state.selectedMode === "live" ? "block" : "none";
+      $("btn-save-keys").disabled = true;
+      clearAlert(1);
+    }
+  });
+
+  // ---------- test connection (provider-agnostic) ----------
+  $("btn-test").addEventListener("click", async () => {
+    clearAlert(1);
+    const payload = collectFormPayload();
+    const missing = validateRequired(payload);
+    if (missing.length) {
+      alert(1, "error", `Missing: ${missing.join(", ")}`);
+      return;
+    }
+    $("btn-test").disabled = true;
+    $("btn-test").innerHTML = '<span class="spinner"></span>Testing...';
+    try {
+      const r = await api("/api/setup/test-broker", payload);
+      if (r.ok) {
+        const acct = r.account || {};
+        const acctNum = acct.account_number || acct.id || "(connected)";
+        const bp = acct.buying_power != null ? ` — BP $${Number(acct.buying_power).toLocaleString()}` : "";
+        alert(1, "success", `Connected. ${state.selectedBroker.display_name} ${payload.mode.toUpperCase()} · ${acctNum}${bp}`);
+        $("btn-save-keys").disabled = false;
+      } else {
+        alert(1, "error", r.error || "Couldn't connect.");
+        $("btn-save-keys").disabled = true;
+      }
+    } catch (e) {
+      alert(1, "error", "Network error: " + e.message);
+    } finally {
+      $("btn-test").disabled = false;
+      $("btn-test").textContent = "Test connection";
+    }
+  });
+
+  // ---------- save (provider-agnostic) ----------
+  $("btn-save-keys").addEventListener("click", async () => {
+    clearAlert(1);
+    const payload = collectFormPayload();
+    const r = await api("/api/setup/save-broker", payload);
+    if (r.ok) {
+      state.keysSaved = true;
+      showStep(2);
+    } else {
+      alert(1, "error", r.error || "Couldn't save config.");
+    }
+  });
+
+  // Tiny HTML/attr escapers — defense against broker metadata that ever contains HTML.
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function escapeAttr(s) { return escapeHTML(s); }
+
+  // ---------- step 2 ----------
+  document.querySelectorAll('input[name="universe"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      document.querySelectorAll(".universe-options .option").forEach((o) => o.classList.remove("selected"));
+      r.closest(".option").classList.add("selected");
+      $("custom_symbols").style.display = r.value === "custom" ? "block" : "none";
+    });
+  });
+
+  $("btn-back-1").addEventListener("click", () => showStep(1));
+
+  $("btn-onboard").addEventListener("click", async () => {
+    clearAlert(2);
+    const mode = document.querySelector('input[name="universe"]:checked').value;
+    const body = { mode };
+    if (mode === "custom") {
+      const raw = $("custom_symbols").value;
+      const symbols = raw.split(/[\s,]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
+      if (!symbols.length) {
+        alert(2, "error", "Enter at least one ticker for a custom watchlist.");
+        return;
+      }
+      body.symbols = symbols;
+    }
+    const prog = $("progress");
+    prog.className = "progress show";
+    prog.innerHTML = '<div class="line"><span class="spinner"></span>Verifying option chains with your broker...</div>';
+    $("btn-onboard").disabled = true;
+
+    try {
+      const r = await api("/api/setup/onboard", body);
+      if (!r.ok) {
+        alert(2, "error", r.error || "Onboarding failed.");
+        prog.className = "progress";
+        return;
+      }
+      state.onboarded = { mode: r.mode, total: r.total, stats: r.stats };
+      const lines = r.results.map((row) => {
+        let cls = "ok", marker = "✓";
+        if (row.status === "no_options") { cls = "warn"; marker = "−"; }
+        else if (row.status === "error") { cls = "err"; marker = "✗"; }
+        else if (row.status === "updated" || row.status === "reactivated") { cls = "skip"; marker = "·"; }
+        return `<div class="line ${cls}">${marker} <b>${row.symbol}</b> &nbsp;<span style="color:var(--text-dim)">${row.message || row.status}</span></div>`;
+      });
+      const summary = `<div class="line" style="margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">
+        <b>Done.</b> Added ${r.stats.added} · Already active ${r.stats.skipped} · No chain ${r.stats.no_options} · Errors ${r.stats.errors}
+      </div>`;
+      prog.innerHTML = lines.join("") + summary;
+      alert(2, "success", `Onboarded — ${r.stats.added + r.stats.skipped} symbols ready to trade.`);
+      // Auto-advance after a short pause so the user reads the summary.
+      setTimeout(() => populateSummary(), 400);
+      setTimeout(() => showStep(3), 800);
+    } catch (e) {
+      alert(2, "error", "Network error: " + e.message);
+    } finally {
+      $("btn-onboard").disabled = false;
+    }
+  });
+
+  // ---------- step 3 ----------
+  function populateSummary() {
+    const items = [];
+    const brokerName = state.selectedBroker ? state.selectedBroker.display_name : "Broker";
+    const modeLabel = state.selectedMode === "live" ? "Live (real money)" : "Paper trading";
+    items.push(`<li><span class="k">${brokerName}:</span> ${modeLabel} — keys saved to <code>config/config.json</code></li>`);
+    if (state.onboarded) {
+      const ob = state.onboarded;
+      items.push(`<li><span class="k">Universe:</span> ${ob.mode} (${ob.stats.added + ob.stats.skipped} active symbols)</li>`);
+    }
+    items.push(`<li><span class="k">Database:</span> <code>assisted_trading/state/trading.db</code> (auto-created)</li>`);
+    items.push(`<li><span class="k">URL:</span> the platform will run at <code>http://localhost:5001</code></li>`);
+    $("summary").innerHTML = items.join("");
+  }
+
+  $("btn-back-2").addEventListener("click", () => showStep(2));
+
+  $("btn-finalize").addEventListener("click", async () => {
+    clearAlert(3);
+    $("btn-finalize").disabled = true;
+    $("btn-finalize").innerHTML = '<span class="spinner"></span>Starting platform...';
+    try {
+      const r = await api("/api/setup/finalize");
+      if (r.ok) {
+        alert(3, "success", "Platform started. Loading trading UI...");
+        setTimeout(() => { window.location.href = r.redirect || "/"; }, 700);
+      } else {
+        alert(3, "error", r.error || "Couldn't start the platform.");
+        $("btn-finalize").disabled = false;
+        $("btn-finalize").textContent = "Start trading →";
+      }
+    } catch (e) {
+      alert(3, "error", "Network error: " + e.message);
+      $("btn-finalize").disabled = false;
+      $("btn-finalize").textContent = "Start trading →";
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,434 @@
+/* Trading Panel Styles (Right Side) */
+
+.trading-panel {
+    width: 350px;
+    background: var(--secondary-bg);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: var(--spacing-lg);
+    gap: var(--spacing-lg);
+}
+
+/* Broker Status */
+.broker-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.broker-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.connection-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-red);
+}
+
+.connection-dot.connected {
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+}
+
+/* Contract Type Tabs */
+.contract-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+}
+
+.tab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: var(--hover-bg);
+}
+
+.tab-btn.active[data-type="CALL"] {
+    background: rgba(14, 203, 129, 0.15);
+    border-color: var(--call-color);
+    color: var(--call-color);
+}
+
+.tab-btn.active[data-type="PUT"] {
+    background: rgba(246, 70, 93, 0.15);
+    border-color: var(--put-color);
+    color: var(--put-color);
+}
+
+.tab-icon {
+    font-size: 18px;
+}
+
+/* Panel Sections */
+.panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Strike Selector */
+.strike-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.strike-btn {
+    width: 40px;
+    height: 40px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.strike-btn:hover {
+    background: var(--hover-bg);
+}
+
+.strike-btn:active {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.strike-display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.strike-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.strike-price {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.strike-offset {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Dropdowns */
+.dte-dropdown,
+.order-type-dropdown {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.dte-dropdown:hover,
+.order-type-dropdown:hover {
+    background: var(--hover-bg);
+}
+
+/* Position Size Input */
+.position-size-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-prefix {
+    position: absolute;
+    left: 12px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.size-input {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) 28px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.size-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.contracts-display {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.contracts-display span {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Price Input Group */
+.price-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.price-input {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--spacing-md) 40px var(--spacing-md) 28px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 14px;
+}
+
+.price-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.price-input::placeholder {
+    color: var(--text-muted);
+}
+
+.clear-btn {
+    position: absolute;
+    right: 8px;
+    background: var(--hover-bg);
+    border: none;
+    color: var(--text-secondary);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.clear-btn:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+/* Limit Price Section */
+.limit-price-section {
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border);
+}
+
+/* Order Preview */
+.order-preview {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+}
+
+.preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    font-size: 13px;
+}
+
+.preview-row:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+}
+
+.preview-row span:first-child {
+    color: var(--text-secondary);
+}
+
+.preview-row span:last-child {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Execute Button */
+.execute-btn {
+    width: 100%;
+    padding: var(--spacing-lg);
+    background: var(--call-color);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    transition: all 0.2s;
+}
+
+.execute-btn:hover {
+    background: #0db874;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(14, 203, 129, 0.3);
+}
+
+.execute-btn:active {
+    transform: translateY(0);
+}
+
+.execute-btn.put {
+    background: var(--put-color);
+}
+
+.execute-btn.put:hover {
+    background: #e53d53;
+    box-shadow: 0 4px 12px rgba(246, 70, 93, 0.3);
+}
+
+.execute-btn:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+/* Order Execution Radio Options */
+.order-execution-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.execution-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.execution-option:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent-blue);
+}
+
+.execution-option input[type="radio"] {
+    margin-top: 2px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-blue);
+}
+
+.execution-option input[type="radio"]:checked ~ .option-label {
+    color: var(--text-primary);
+}
+
+.execution-option:has(input[type="radio"]:checked) {
+    border-color: var(--accent-blue);
+    background: rgba(56, 97, 251, 0.1);
+}
+
+.option-label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+.option-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.option-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.quick-btn {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quick-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}

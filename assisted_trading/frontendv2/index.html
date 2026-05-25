@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptionsCanvas</title>
+
+    <!-- TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
+
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/chart.css">
+    <link rel="stylesheet" href="styles/trading-panel.css">
+    <link rel="stylesheet" href="styles/positions.css">
+    <link rel="stylesheet" href="styles/drag-confirmation.css">
+    <link rel="stylesheet" href="styles/toast.css">
+</head>
+
+<body>
+    <!-- Main Container -->
+    <div class="app-container">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1 class="app-title">🎨 OptionsCanvas</h1>
+                <div class="symbol-selector">
+                    <select id="symbolSelect" class="symbol-dropdown">
+                        <!-- Options populated dynamically from backend -->
+                    </select>
+                </div>
+                <div class="timeframe-selector">
+                    <button class="tf-btn" data-tf="1Min">1m</button>
+                    <button class="tf-btn active" data-tf="5Min">5m</button>
+                    <button class="tf-btn" data-tf="15Min">15m</button>
+                    <button class="tf-btn" data-tf="30Min">30m</button>
+                    <button class="tf-btn" data-tf="1Hour">1H</button>
+                    <button class="tf-btn" data-tf="1Day">1D</button>
+                </div>
+                <div class="indicators-dropdown">
+                    <button class="indicator-btn" id="indicatorsBtn">Indicators ▾</button>
+                    <div class="indicator-menu" id="indicatorsMenu">
+                        <label class="indicator-option">
+                            <input type="checkbox" id="indicator-volume" data-indicator="volume">
+                            <span>Volume</span>
+                        </label>
+                        <label class="indicator-option">
+                            <input type="checkbox" id="indicator-vwap" data-indicator="vwap">
+                            <span>VWAP</span>
+                        </label>
+                        <label class="indicator-option">
+                            <input type="checkbox" id="indicator-sma200" data-indicator="sma_200">
+                            <span>SMA 200</span>
+                        </label>
+                        <label class="indicator-option">
+                            <input type="checkbox" id="indicator-ema8" data-indicator="ema_8">
+                            <span>EMA 8</span>
+                        </label>
+                        <label class="indicator-option">
+                            <input type="checkbox" id="indicator-ema21" data-indicator="ema_21">
+                            <span>EMA 21</span>
+                        </label>
+                        <label class="indicator-option">
+                            <input type="checkbox" id="indicator-rsi" data-indicator="rsi">
+                            <span>RSI (14)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-center">
+                <!-- Broker / mode / account pill — load-bearing safety UI.
+                     Paper mode: subtle neutral pill. Live mode: red, with a
+                     border accent on the whole app chrome via body.live-mode. -->
+                <button class="broker-pill paper" id="brokerPill" type="button"
+                        title="Click for broker details">
+                    <span class="broker-pill-dot"></span>
+                    <span class="broker-pill-name" id="brokerPillName">Loading...</span>
+                    <span class="broker-pill-mode" id="brokerPillMode">—</span>
+                    <span class="broker-pill-acct" id="brokerPillAcct"></span>
+                </button>
+                <div class="account-info" id="accountInfo">
+                    <span class="buying-power">BP: $--</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <select id="timezoneSelect">
+                    <option value="America/Los_Angeles">PT</option>
+                    <option value="America/New_York">ET</option>
+                    <option value="UTC">UTC</option>
+                    <option value="local">Local</option>
+                </select>
+                <div class="day-pnl" id="dayPnL">
+                    <span class="pnl-label">Day P&L:</span>
+                    <span class="pnl-value">$0.00</span>
+                </div>
+                <button class="icon-btn" id="settingsBtn" title="Settings">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+
+            <!-- Chart Area (Left) -->
+            <div class="chart-container">
+                <div class="chart-toolbar">
+                    <button class="tool-btn" id="crosshairBtn" title="Crosshair (ESC)">✛</button>
+                    <button class="tool-btn" id="hlineBtn" title="Horizontal Line (D)">―</button>
+                    <button class="tool-btn" id="trendlineBtn" title="Trend Line (T)">/</button>
+                    <button class="tool-btn" id="bracketBtn" title="Bracket Order Mode (Shift+B)">📊</button>
+                    <button class="tool-btn active" id="orderPanelBtn" title="Toggle Order Panel on Chart">💹</button>
+                    <button class="tool-btn" id="clearDrawingsBtn" title="Clear Drawings">🗑️</button>
+                    <button class="tool-btn" id="helpBtn" title="Keyboard Shortcuts (?)">❓</button>
+                    <div class="chart-info" id="chartInfo">
+                        <span class="chart-price">--</span>
+                    </div>
+                </div>
+                <div id="chartView" class="chart-view"></div>
+            </div>
+
+            <!-- Resize Handle -->
+            <div class="gutter" id="resizeHandle"></div>
+
+            <!-- Trading Panel (Right) -->
+            <div class="trading-panel">
+
+                <!-- Broker Connection Status -->
+                <div class="broker-status" id="brokerStatus">
+                    <span class="broker-name">—</span>
+                    <span class="connection-dot connected"></span>
+                </div>
+
+                <!-- Contract Type Tabs -->
+                <div class="contract-tabs">
+                    <button class="tab-btn active" data-type="CALL">
+                        <span class="tab-icon">📈</span>
+                        <span>CALL</span>
+                    </button>
+                    <button class="tab-btn" data-type="PUT">
+                        <span class="tab-icon">📉</span>
+                        <span>PUT</span>
+                    </button>
+                </div>
+
+                <!-- Strike Selector -->
+                <div class="panel-section">
+                    <label class="section-label">Strike Price</label>
+                    <div class="strike-selector">
+                        <button class="strike-btn" id="strikeDown">−</button>
+                        <div class="strike-display">
+                            <div class="strike-label">ATM</div>
+                            <div class="strike-price" id="strikePrice">$595.00</div>
+                        </div>
+                        <button class="strike-btn" id="strikeUp">+</button>
+                    </div>
+                    <div class="strike-offset" id="strikeOffset">
+                        <span>Offset: 0</span>
+                    </div>
+                </div>
+
+                <!-- DTE Selector -->
+                <div class="panel-section">
+                    <label class="section-label">Expiration (DTE)</label>
+                    <div class="dte-selector">
+                        <select id="dteSelect" class="dte-dropdown">
+                            <option value="0">0 DTE (Today)</option>
+                            <option value="1">1 DTE (Tomorrow)</option>
+                            <option value="2">2 DTE</option>
+                            <option value="7">1 Week</option>
+                            <option value="14">2 Weeks</option>
+                            <option value="30">1 Month</option>
+                            <option value="60">2 Months</option>
+                            <option value="90">3 Months</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Position Size -->
+                <div class="panel-section">
+                    <label class="section-label">Position Size</label>
+                    <div class="position-size-input">
+                        <span class="input-prefix">$</span>
+                        <input type="number" id="positionSize" value="1000" min="100" step="100" class="size-input">
+                    </div>
+                    <div class="contracts-display" id="contractsDisplay">
+                        ≈ <span id="contractsQty">--</span> contracts @ <span id="optionPremium">--</span>
+                    </div>
+                </div>
+
+                <!-- Order Execution Type -->
+                <div class="panel-section">
+                    <label class="section-label" title="Controls HOW the option contract order is filled - at midpoint or market price">
+                        Option Fill Strategy
+                        <span style="font-size: 12px; color: #888; font-weight: normal;">ⓘ</span>
+                    </label>
+                    <div class="order-execution-options">
+                        <label class="execution-option">
+                            <input type="radio" name="orderExecution" value="limit" checked>
+                            <span class="option-label">
+                                <span class="option-title">Limit at Midpoint</span>
+                                <span class="option-desc">Better fill price on option contract</span>
+                            </span>
+                        </label>
+                        <label class="execution-option">
+                            <input type="radio" name="orderExecution" value="market">
+                            <span class="option-label">
+                                <span class="option-title">Market Fill</span>
+                                <span class="option-desc">Guaranteed fill, pays ask price</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Stop Loss & Take Profit -->
+                <div class="panel-section">
+                    <label class="section-label">
+                        Stop Loss (Underlying)
+                        <button class="icon-btn" id="smartDefaultsBtn" title="Auto-calculate SL/TP"
+                            style="float: right; font-size: 10px; padding: 2px 6px;">🎯 Smart</button>
+                    </label>
+                    <div class="price-input-group">
+                        <span class="input-prefix">$</span>
+                        <input type="number" id="stopLoss" placeholder="Optional" step="0.01" class="price-input">
+                        <button class="clear-btn" onclick="document.getElementById('stopLoss').value = ''">×</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <label class="section-label">Take Profit (Underlying)</label>
+                    <div class="price-input-group">
+                        <span class="input-prefix">$</span>
+                        <input type="number" id="takeProfit" placeholder="Optional" step="0.01" class="price-input">
+                        <button class="clear-btn" onclick="document.getElementById('takeProfit').value = ''">×</button>
+                    </div>
+                </div>
+
+                <!-- Order Trigger (When to execute) -->
+                <div class="panel-section">
+                    <label class="section-label" title="Controls WHEN the order is placed based on underlying stock price">
+                        Order Trigger (Underlying Price)
+                        <span style="font-size: 12px; color: #888; font-weight: normal;">ⓘ</span>
+                    </label>
+                    <div class="order-type-selector">
+                        <select id="orderType" class="order-type-dropdown">
+                            <option value="market">Execute Now (Immediately)</option>
+                            <option value="limit">Wait for Price (Set Trigger)</option>
+                        </select>
+                    </div>
+                    <div class="order-type-info" style="font-size: 11px; color: #888; margin-top: 4px;">
+                        <span id="orderTypeExplanation">Places order immediately at current market conditions</span>
+                    </div>
+                    <div id="limitPriceSection" class="limit-price-section" style="display: none;">
+                        <label class="section-label" id="triggerPriceLabel">Trigger Price (Underlying Price)</label>
+                        <div class="price-input-group">
+                            <span class="input-prefix">$</span>
+                            <input type="number" id="limitPrice" placeholder="e.g. 595.50" step="0.01"
+                                class="price-input">
+                        </div>
+                        <div style="font-size: 10px; color: #888; margin-top: 4px;">
+                            Order will execute when underlying reaches this price
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Preview -->
+                <div class="order-preview" id="orderPreview">
+                    <div class="preview-row">
+                        <span>Contract:</span>
+                        <span id="previewContract">SPY260115C00595000</span>
+                    </div>
+                    <div class="preview-row">
+                        <span>Qty:</span>
+                        <span id="previewQty">4 contracts</span>
+                    </div>
+                    <div class="preview-row">
+                        <span>Est. Cost:</span>
+                        <span id="previewCost">$1,000.00</span>
+                    </div>
+                </div>
+
+                <!-- Execute Button -->
+                <button class="execute-btn" id="executeBtn">
+                    <span class="btn-icon">🚀</span>
+                    <span class="btn-text">Buy CALL</span>
+                </button>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="quick-btn" id="closeAllBtn">Close All Positions</button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Positions & Orders Panel (Bottom) -->
+        <div class="bottom-panels-container" id="bottomPanelsContainer">
+            <div class="bottom-resize-handle" id="bottomResizeHandle"></div>
+            <div class="positions-panel" id="positionsPanel">
+                <div class="positions-header">
+                    <h3 class="positions-title">Open Positions</h3>
+                    <button class="collapse-btn" id="posCollapseBtn">−</button>
+                </div>
+                <div class="positions-list" id="positionsList">
+                    <div class="empty-positions">
+                        No open positions
+                    </div>
+                </div>
+            </div>
+
+            <div class="positions-panel" id="ordersPanel">
+                <div class="positions-header">
+                    <h3 class="positions-title">Queued Orders</h3>
+                    <button class="collapse-btn" id="orderCollapseBtn">−</button>
+                </div>
+                <div class="positions-list" id="ordersList">
+                    <div class="empty-positions">
+                        No queued orders
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" onclick="closeSettings()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Trading Settings</h3>
+                    <label>
+                        <input type="checkbox" id="autoSellSL" checked>
+                        Auto-sell on Stop Loss
+                    </label>
+                    <label>
+                        <input type="checkbox" id="autoSellTP" checked>
+                        Auto-sell on Take Profit
+                    </label>
+                </div>
+                <div class="settings-section">
+                    <h3>Chart Settings</h3>
+                    <label>
+                        Default Timeframe:
+                        <select id="defaultTimeframe">
+                            <option value="1Min">1 Minute</option>
+                            <option value="5Min" selected>5 Minutes</option>
+                            <option value="15Min">15 Minutes</option>
+                            <option value="1Hour">1 Hour</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="settings-section">
+                    <h3>UI Settings</h3>
+                    <label>
+                        <input type="checkbox" id="soundAlerts" checked>
+                        Sound Alerts
+                    </label>
+                    <label>
+                        <input type="checkbox" id="showTooltips" checked>
+                        Show Tooltips
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+                <button class="btn-primary" onclick="saveSettings()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Broker pill popover (hidden until pill is clicked) -->
+    <div class="broker-popover" id="brokerPopover" hidden>
+        <div class="bp-row"><span class="bp-k">Broker</span><span class="bp-v" id="bpBroker">—</span></div>
+        <div class="bp-row"><span class="bp-k">Mode</span><span class="bp-v" id="bpMode">—</span></div>
+        <div class="bp-row"><span class="bp-k">Account</span><span class="bp-v bp-mono" id="bpAccount">—</span></div>
+        <div class="bp-row"><span class="bp-k">Buying power</span><span class="bp-v" id="bpBP">—</span></div>
+        <div class="bp-row"><span class="bp-k">Portfolio value</span><span class="bp-v" id="bpPV">—</span></div>
+        <div class="bp-row"><span class="bp-k">Status</span><span class="bp-v" id="bpStatus">—</span></div>
+        <div class="bp-sep"></div>
+        <a class="bp-link" href="/setup">Switch broker / rotate keys →</a>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="js/utils/EventBus.js"></script>
+    <script src="js/utils/Settings.js"></script>
+    <script src="js/utils/Toast.js"></script>
+    <script src="js/utils/LayoutManager.js"></script>
+    <script src="js/utils/TechnicalIndicators.js"></script>
+    <script src="js/utils/KeyboardShortcuts.js"></script>
+    <script src="js/utils/SmartDefaults.js"></script>
+    <script src="js/utils/BlackScholesCalculator.js"></script>
+    <script src="js/data/ApiClient.js"></script>
+    <script src="js/data/DataStream.js"></script>
+    <script src="js/chart/ChartManager.js"></script>
+    <script src="js/chart/IndicatorsManager.js"></script>
+    <script src="js/chart/DrawingManager.js"></script>
+    <script src="js/chart/PriceLineManager.js"></script>
+    <script src="js/chart/DragHandles.js"></script>
+    <script src="js/chart/ContextMenu.js"></script>
+    <script type="module" src="js/chart/ChartTradingController.js"></script>
+    <script src="js/chart/OrderPanelOnChart.js"></script>
+    <script src="js/chart/PositionPanelOnChart.js"></script>
+    <script src="js/trading/TradingPanel.js"></script>
+    <script src="js/trading/PositionTracker.js"></script>
+    <script src="js/trading/OrderTracker.js"></script>
+    <script src="js/trading/BracketOrderDrawer.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

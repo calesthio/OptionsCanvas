@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Claude Code
+.claude/
+tmpclaude-*           # actual files use no extension (tmpclaude-XXXX-cwd); previous pattern with .cwd missed them
+
+# Internal dev agent docs — not part of the shipped product
+assisted_trading/agents/
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Trading Data (Sensitive)
+config/config.json
+state/
+journal/
+assisted_trading/state/
+assisted_trading/journal/
+assisted_trading/logs/
+
+# Temporary Files
+*.tmp
+*.temp
+nul
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test Coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Documentation Build
+docs/_build/
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# Testing artifacts
+tests/reports/
+.pytest_cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# State logs
+state/transitions.jsonl
+state/*.db
+state/*.log

@@ -1,0 +1,139 @@
+/* Chart Styles */
+
+.chart-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-bg);
+    border-right: 1px solid var(--border);
+    position: relative;
+    min-width: 0;
+    /* Allow shrinking below content size */
+}
+
+.chart-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--border);
+}
+
+.tool-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.tool-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.tool-btn.active {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.chart-info {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.chart-price {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.chart-view {
+    flex: 1;
+    position: relative;
+    background: var(--primary-bg);
+    overflow: hidden;
+}
+
+/* Price Line Styles (managed by TradingView Lightweight Charts) */
+.price-line-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.price-line-entry {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.price-line-sl {
+    background: var(--accent-red);
+    color: white;
+}
+
+.price-line-tp {
+    background: var(--accent-green);
+    color: white;
+}
+
+/* Drag Handle Styles */
+.drag-handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border: 2px solid var(--accent-blue);
+    border-radius: 50%;
+    cursor: grab;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+.drag-handle:hover {
+    transform: scale(1.2);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-handle.sl {
+    border-color: var(--accent-red);
+}
+
+.drag-handle.tp {
+    border-color: var(--accent-green);
+}
+
+/* Drawing Tools */
+.drawing-line {
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.drawing-line:hover {
+    opacity: 0.8;
+}
+
+.drawing-point {
+    fill: white;
+    stroke: var(--accent-blue);
+    stroke-width: 2;
+    cursor: move;
+}
+
+.drawing-point:hover {
+    r: 6;
+}

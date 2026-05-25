@@ -1,0 +1,71 @@
+/* Drag Confirmation Overlay */
+.drag-confirm-container {
+    position: fixed;
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.drag-confirm-price {
+    background: rgba(15, 20, 25, 0.95);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.drag-confirm-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.drag-confirm-btn {
+    border: none;
+    border-radius: 3px;
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s, filter 0.1s;
+}
+
+.drag-confirm-btn:active {
+    transform: scale(0.95);
+}
+
+.drag-confirm-btn.confirm {
+    background: #0ecb81;
+}
+
+.drag-confirm-btn.confirm:hover {
+    filter: brightness(1.1);
+}
+
+.drag-confirm-btn.cancel {
+    background: #f6465d;
+}
+
+.drag-confirm-btn.cancel:hover {
+    filter: brightness(1.1);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

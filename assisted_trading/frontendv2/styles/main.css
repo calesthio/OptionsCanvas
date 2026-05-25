@@ -1,0 +1,819 @@
+/* Main Styles - Base Layout and Typography */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* Colors - Dark Theme */
+    --primary-bg: #0f1419;
+    --secondary-bg: #1a1f29;
+    --card-bg: #1e2329;
+    --border: #2b3139;
+    --hover-bg: #252a32;
+
+    /* Text Colors */
+    --text-primary: #e8e9eb;
+    --text-secondary: #a8aeb8;
+    --text-muted: #6c7383;
+
+    /* Accent Colors */
+    --accent-blue: #3861fb;
+    --accent-green: #0ecb81;
+    --accent-red: #f6465d;
+    --accent-yellow: #ffa000;
+
+    /* Trading Colors */
+    --call-color: #0ecb81;
+    --put-color: #f6465d;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    /* Font */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+}
+
+body {
+    font-family: var(--font-family);
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Header */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--border);
+    height: 60px;
+}
+
+.header-left,
+.header-center,
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.header-left {
+    position: relative;
+    overflow: visible;
+}
+
+.app-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.symbol-dropdown,
+#timezoneSelect {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--font-family);
+    transition: all 0.2s;
+}
+
+.symbol-dropdown {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.symbol-dropdown:hover,
+#timezoneSelect:hover {
+    background: var(--hover-bg);
+}
+
+.symbol-dropdown:focus,
+#timezoneSelect:focus {
+    outline: none;
+    background: var(--hover-bg);
+}
+
+.timeframe-selector {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.tf-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.tf-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.tf-btn.active {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.market-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 6px 12px;
+    background: var(--card-bg);
+    border-radius: var(--radius-sm);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse 2s infinite;
+}
+
+/* WebSocket Status Indicator (small dot next to broker status) */
+.ws-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: 8px;
+    transition: background-color 0.3s ease;
+    display: inline-block;
+}
+
+.ws-indicator.connected {
+    background: var(--accent-green);
+    animation: pulse 2s infinite;
+}
+
+.ws-indicator.disconnected {
+    background: var(--accent-red);
+}
+
+.ws-indicator.connecting {
+    background: var(--accent-yellow);
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.status-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.account-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* ============================================================ */
+/* Broker pill — load-bearing safety UI showing broker/mode/acct */
+/* ============================================================ */
+.broker-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.broker-pill:hover { background: var(--hover-bg); }
+
+.broker-pill-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #2ea043;  /* connected green */
+    flex-shrink: 0;
+}
+
+.broker-pill-name {
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.broker-pill-mode {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.broker-pill-acct {
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+}
+
+/* Paper mode — subtle, neutral */
+.broker-pill.paper .broker-pill-mode {
+    background: rgba(139, 148, 158, 0.18);
+    color: var(--text-secondary);
+}
+
+/* Live mode — LOUD. Red pill, red dot, drop-shadow, red border. */
+.broker-pill.live {
+    border-color: #f85149;
+    background: rgba(248, 81, 73, 0.10);
+    box-shadow: 0 0 0 1px rgba(248, 81, 73, 0.35), 0 0 12px rgba(248, 81, 73, 0.25);
+}
+.broker-pill.live:hover {
+    background: rgba(248, 81, 73, 0.18);
+}
+.broker-pill.live .broker-pill-dot { background: #f85149; }
+.broker-pill.live .broker-pill-name { color: #ff7b72; }
+.broker-pill.live .broker-pill-mode {
+    background: #f85149;
+    color: #fff;
+}
+
+/* Disconnected — gray dot, neutral text */
+.broker-pill.disconnected .broker-pill-dot { background: #8b949e; }
+
+/* App-wide red border accent when in live mode — peripheral vision cue */
+body.live-mode .app-container {
+    box-shadow: inset 0 0 0 2px rgba(248, 81, 73, 0.55);
+}
+
+/* --------- Broker popover (click to open) --------- */
+.broker-popover {
+    position: fixed;
+    top: 56px;  /* sits below header */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    min-width: 280px;
+    background: var(--primary-bg, var(--secondary-bg));
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+    font-size: 13px;
+}
+.broker-popover[hidden] { display: none; }
+
+.bp-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    align-items: center;
+}
+.bp-k { color: var(--text-secondary); }
+.bp-v { color: var(--text-primary); font-weight: 500; }
+.bp-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+.bp-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 8px -16px;
+}
+.bp-link {
+    display: block;
+    text-align: center;
+    color: var(--accent-blue, #2f81f7);
+    text-decoration: none;
+    padding: 4px 0;
+    font-weight: 500;
+}
+.bp-link:hover { text-decoration: underline; }
+
+.buying-power {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.day-pnl {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 6px 12px;
+    background: var(--card-bg);
+    border-radius: var(--radius-sm);
+}
+
+.pnl-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.pnl-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pnl-value.positive {
+    color: var(--accent-green);
+}
+
+.pnl-value.negative {
+    color: var(--accent-red);
+}
+
+.icon-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    background: var(--hover-bg);
+}
+
+/* Main Content */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.gutter {
+    width: 8px;
+    /* Widen for easier grabbing */
+    background-color: var(--border);
+    /* Assuming --border-color is meant to be --border */
+    cursor: col-resize;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+    z-index: 100;
+    /* Ensure on top */
+    margin: 0 -2px;
+    /* Visual centering if needed, or just standard width */
+}
+
+.gutter:hover,
+.gutter.active {
+    background-color: var(--accent-blue);
+    /* Assuming --accent-color is meant to be --accent-blue */
+    cursor: col-resize;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    width: 500px;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: var(--spacing-lg);
+}
+
+.settings-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.settings-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.settings-section label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    cursor: pointer;
+}
+
+.settings-section input[type="checkbox"] {
+    margin-right: var(--spacing-sm);
+}
+
+.settings-section select {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-sm);
+    margin-left: var(--spacing-sm);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2850eb;
+}
+
+.btn-secondary {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--hover-bg);
+}
+
+/* Utility Classes */
+.monospace {
+    font-family: var(--font-mono);
+}
+
+.text-green {
+    color: var(--accent-green);
+}
+
+.text-red {
+    color: var(--accent-red);
+}
+
+.text-yellow {
+    color: var(--accent-yellow);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+/* Indicators Dropdown */
+.indicators-dropdown {
+    position: relative;
+}
+
+.indicator-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-family);
+}
+
+.indicator-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.indicator-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: #1e2329;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 0;
+    min-width: 180px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.9);
+    display: none !important;
+    z-index: 99999;
+}
+
+.indicator-menu.show {
+    display: block !important;
+}
+
+.indicator-option {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+    margin: 0;
+}
+
+.indicator-option:hover {
+    background: var(--hover-bg);
+}
+
+.indicator-option input[type="checkbox"] {
+    margin: 0;
+    margin-right: 8px;
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.indicator-option span {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-weight: 400;
+}
+
+/* Bottom Panels Container */
+.bottom-panels-container {
+    display: flex;
+    gap: 15px;
+    padding: 0 15px 15px 15px;
+    height: 280px;
+    /* Use fixed height for resizing */
+    flex-shrink: 0;
+    position: relative;
+    transition: height 0.3s, padding-bottom 0.3s;
+}
+
+/* Resize handle for bottom panels */
+.bottom-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    cursor: ns-resize;
+    background: transparent;
+    z-index: 10;
+    transition: background 0.2s;
+}
+
+.bottom-resize-handle:hover {
+    background: var(--accent-blue);
+    opacity: 0.5;
+}
+
+.bottom-resize-handle:active {
+    background: var(--accent-blue);
+    opacity: 0.8;
+}
+
+.bottom-panels-container .positions-panel {
+    flex: 1;
+    margin: 0;
+    min-width: 0;
+    transition: flex 0.3s;
+}
+
+/* ---------- Collapsed bottom panels ----------
+   A single-panel collapse shrinks horizontally to a 48px-wide vertical strip;
+   the sibling panel grows (flex: 1 in the base rule) to fill the freed
+   horizontal space. Inside the strip we lay the header out vertically — the
+   ± toggle stays clickable at the top, the title is rotated 90° so it stays
+   readable in the narrow column.
+
+   When BOTH panels are collapsed, the whole container also shrinks vertically
+   so the chart above (flex: 1 in the column) reclaims the freed real estate.
+   That gives users a coherent mental model:
+     - collapse one  → "give the OTHER bottom panel more room"
+     - collapse both → "give the chart more room"
+*/
+.bottom-panels-container .positions-panel.collapsed {
+    flex: 0 0 48px;          /* width clamp; height comes from container */
+    overflow: hidden;
+}
+
+.positions-panel.collapsed .positions-header {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    padding: 8px 0;
+    gap: 12px;
+    border-bottom: none;
+    cursor: pointer;         /* the whole header is clickable to re-expand */
+}
+.positions-panel.collapsed .positions-header:hover {
+    background: var(--hover-bg);
+}
+
+.positions-panel.collapsed .positions-title {
+    /* Read the title bottom-to-top in the narrow vertical strip. */
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+    margin: 0;
+}
+
+.positions-panel.collapsed .positions-list {
+    display: none;
+}
+
+/* Both collapsed → shrink the container vertically (giving the chart space)
+   AND turn each panel into a horizontal chip that's WIDE enough to show the
+   title + the [+] expand button cleanly. The previous version kept panels at
+   48px wide which clipped the title to "OPEN…"/"QUEU…" and pushed the [+]
+   button off-screen, leaving users with no way to re-expand. */
+.bottom-panels-container:not(:has(.positions-panel:not(.collapsed))) {
+    height: auto;
+    min-height: 0;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    align-items: flex-start;
+}
+
+/* Each panel becomes a ~200px-wide chip so title + button both fit. */
+.bottom-panels-container:not(:has(.positions-panel:not(.collapsed))) .positions-panel.collapsed {
+    flex: 0 1 220px;
+    height: auto;
+}
+
+/* Restore horizontal header layout inside the chip — title on the left,
+   [+] button on the right, both visible. */
+.bottom-panels-container:not(:has(.positions-panel:not(.collapsed))) .positions-panel.collapsed .positions-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: auto;
+    padding: 10px 14px;
+    gap: 12px;
+    border-bottom: none;
+}
+.bottom-panels-container:not(:has(.positions-panel:not(.collapsed))) .positions-panel.collapsed .positions-title {
+    writing-mode: horizontal-tb;
+    transform: none;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+/* Queued Order Cards */
+.order-card {
+    border-left: 3px solid #ff9800;
+    /* Orange for queued */
+}
+
+/* Order Status Badges */
+.order-status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.order-status-badge.monitoring-equity {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.order-status-badge.pending-fill {
+    background: rgba(33, 150, 243, 0.2);
+    color: #2196f3;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.order-card .order-actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.action-btn.cancel {
+    background: rgba(246, 70, 93, 0.1);
+    color: #f6465d;
+    border-color: rgba(246, 70, 93, 0.2);
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.action-btn.cancel:hover {
+    background: rgba(246, 70, 93, 0.2);
+}
+
+@media (max-width: 1200px) {
+    .bottom-panels-container {
+        flex-direction: column;
+        height: auto;
+    }
+}

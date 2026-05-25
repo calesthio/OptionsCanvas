@@ -1,0 +1,22 @@
+# OptionsCanvas - Python Dependencies
+
+# Web Framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-SocketIO==5.3.5
+
+# WebSocket Support
+python-socketio==5.11.0
+python-engineio==4.9.0
+
+# Broker Integration
+alpaca-py==0.19.1
+requests>=2.31.0      # used directly by tradier_broker (alpaca-py also depends on it)
+
+# Timezone Support
+pytz==2024.1
+
+# Optional: Development Tools
+# pytest==7.4.3  # Uncomment to run tests
+# black==23.12.1  # Uncomment for code formatting
+# flake8==7.0.0  # Uncomment for linting

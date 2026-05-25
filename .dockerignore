@@ -1,0 +1,57 @@
+# Anything that shouldn't end up in the image. Mirrors .gitignore but with
+# additional excludes specific to Docker context (e.g. the bind-mounted
+# directories — we copy at build time but they're overwritten at runtime).
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+
+# Test / coverage artifacts
+.coverage
+.coverage.*
+.pytest_cache/
+.hypothesis/
+htmlcov/
+test-results/
+playwright-report/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Claude / dev tooling
+.claude/
+tmpclaude-*
+
+# Node (frontend uses CDN-served libs, not bundled)
+node_modules/
+
+# Secrets — config.json is bind-mounted at runtime; we never want a
+# stale copy baked into the image.
+config/config.json
+.env
+.env.*
+
+# Runtime state — these dirs are bind-mounted; baking them in just bloats
+# the image and could leak old test positions to a new user.
+assisted_trading/state/
+assisted_trading/journal/
+assisted_trading/logs/
+state/
+
+# Docs / docs builds
+docs/_build/

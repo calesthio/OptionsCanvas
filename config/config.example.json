@@ -1,0 +1,36 @@
+{
+  "alpaca": {
+    "api_key": "YOUR_ALPACA_API_KEY",
+    "secret_key": "YOUR_ALPACA_SECRET_KEY",
+    "base_url": "https://paper-api.alpaca.markets",
+    "data_feed": "iex"
+  },
+  "alerts": {
+    "enabled": false,
+    "discord_webhook_url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE",
+    "alert_levels": ["INFO", "WARNING", "ERROR", "CRITICAL"]
+  },
+  "logging": {
+    "level": "INFO",
+    "folder": "output/logs",
+    "dated_folders": true,
+    "max_size_mb": 50
+  },
+  "market_config": {
+    "trading": {
+      "symbol": "SPY",
+      "dte": 0,
+      "position_size": 1000,
+      "candle_timeframe": "2Min",
+      "exit_strategy": "multi-level-profit-taking",
+      "sl_percentage": 20,
+      "activate_price_reclaim_exit": true,
+      "max_trades_per_day": 3
+    },
+    "pre_market": {
+      "start_time_pst": "04:00:00",
+      "end_time_pst": "06:30:00"
+    },
+    "timezone": "America/Los_Angeles"
+  }
+}

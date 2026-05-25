@@ -1,0 +1,50 @@
+# ============================================================================
+# OptionsCanvas — docker-compose
+#
+# One-line up:        docker compose up -d
+# Open the wizard:    http://localhost:5001/setup
+# Stop:               docker compose down
+# Wipe state (keeps config): docker compose down --volumes  → restart
+#
+# Volumes are bind-mounts so your config and SQLite live in the repo dir,
+# not buried in a Docker volume. Editing config/config.json on the host
+# is reflected inside the container immediately (next request).
+# ============================================================================
+services:
+  optionscanvas:
+    build: .
+    image: optionscanvas:latest
+    container_name: optionscanvas
+    restart: unless-stopped
+
+    ports:
+      # Host:Container. Change the host side if 5001 is taken by something else.
+      - "5001:5001"
+
+    volumes:
+      # Persist credentials. The setup wizard writes to config/config.json
+      # and that file lives on your host so a container rebuild doesn't
+      # wipe your broker keys.
+      - ./config:/app/config:rw
+
+      # Persist the trading database (positions, orders, journal, supported
+      # symbols). Same idea — outlives container rebuilds.
+      - ./assisted_trading/state:/app/assisted_trading/state:rw
+
+      # Persist daily journal/log files for after-action review.
+      - ./assisted_trading/journal:/app/assisted_trading/journal:rw
+      - ./assisted_trading/logs:/app/assisted_trading/logs:rw
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # Sensible logging defaults so logs don't grow unbounded.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,12 @@
+{
+  "name": "optionscanvas-frontend-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test tests/frontend/*.test.js",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}

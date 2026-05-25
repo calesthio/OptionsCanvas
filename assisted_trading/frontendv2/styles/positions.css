@@ -1,0 +1,341 @@
+/* Positions Panel Styles (Bottom) */
+
+.positions-panel {
+    background: var(--secondary-bg);
+    border-top: 1px solid var(--border);
+    height: 280px;
+    /* Set a fixed height that fits the cards */
+    display: flex;
+    flex-direction: column;
+    transition: height 0.3s;
+    flex-shrink: 0;
+}
+
+.positions-panel.collapsed {
+    height: 48px;
+}
+
+.positions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+}
+
+.positions-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.collapse-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.collapse-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.positions-list {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: auto;
+    /* Allow vertical scroll if many positions */
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    align-items: flex-start;
+    /* Don't stretch cards vertically */
+}
+
+.empty-positions {
+    width: 100%;
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* Position Card */
+.position-card {
+    position: relative;
+    min-width: 320px;
+    max-width: 320px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.position-card:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 2px 8px rgba(56, 97, 251, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Show navigation hint on hover */
+.position-card::after {
+    content: '→';
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+    font-size: 14px;
+    color: var(--accent-blue);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.position-card:hover::after {
+    opacity: 0.6;
+}
+
+.position-card.selected {
+    border-color: var(--accent-blue);
+    background: rgba(56, 97, 251, 0.05);
+}
+
+/* Position Header */
+.position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.position-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.position-type {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.position-type.call {
+    background: rgba(14, 203, 129, 0.2);
+    color: var(--call-color);
+}
+
+.position-type.put {
+    background: rgba(246, 70, 93, 0.2);
+    color: var(--put-color);
+}
+
+.position-type.stock {
+    background: rgba(56, 97, 251, 0.2);
+    color: var(--accent-blue);
+}
+
+.position-symbol {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.position-pnl {
+    text-align: right;
+}
+
+.pnl-amount {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.pnl-amount.positive {
+    color: var(--accent-green);
+}
+
+.pnl-amount.negative {
+    color: var(--accent-red);
+}
+
+.pnl-percent {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* Position Details */
+.position-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.detail-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Position Levels */
+.position-levels {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+}
+
+.level-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--secondary-bg);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+}
+
+.level-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.level-item.entry .level-dot {
+    background: var(--accent-blue);
+}
+
+.level-item.sl .level-dot {
+    background: var(--accent-red);
+}
+
+.level-item.tp .level-dot {
+    background: var(--accent-green);
+}
+
+.level-label {
+    color: var(--text-muted);
+    margin-right: 2px;
+}
+
+.level-value {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Position Actions */
+.position-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.action-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.action-btn.sell {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+.action-btn.sell:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+.action-btn.close-all {
+    border-color: var(--accent-yellow);
+    color: var(--accent-yellow);
+}
+
+.action-btn.close-all:hover {
+    background: var(--accent-yellow);
+    color: var(--primary-bg);
+}
+
+/* Close Button - Improved touch target */
+.close-position-btn {
+    background: rgba(246, 70, 93, 0.1);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.close-position-btn:hover {
+    background: var(--accent-red);
+    border-color: var(--accent-red);
+    color: white;
+    transform: scale(1.05);
+}
+
+/* Untracked (External) Positions */
+.position-card.untracked {
+    border-color: var(--accent-yellow);
+    background: rgba(240, 185, 11, 0.05);
+}
+
+.position-card.untracked:hover {
+    border-color: var(--accent-yellow);
+    box-shadow: 0 2px 8px rgba(240, 185, 11, 0.3);
+}
+
+.external-badge {
+    font-size: 14px;
+    margin-left: 4px;
+    cursor: help;
+}

@@ -1,0 +1,52 @@
+{
+  "assisted_trading": {
+    "enabled": true,
+    "port": 5000,
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "SLV"
+    ],
+    "contract_types": [
+      "CALL",
+      "PUT"
+    ],
+    "dtes": [
+      0,
+      1,
+      2
+    ],
+    "position_sizes": [
+      1000,
+      2000,
+      5000,
+      10000
+    ],
+    "risk_management": {
+      "max_simultaneous_positions": 10,
+      "max_positions_per_symbol": 3
+    },
+    "trading_hours": {
+      "start_pst": "06:30:00",
+      "end_pst": "13:00:00",
+      "timezone": "America/Los_Angeles"
+    },
+    "order_settings": {
+      "entry_order_type": "limit_midpoint",
+      "entry_timeout_seconds": 120,
+      "exit_order_type": "market",
+      "auto_sell_on_stop_loss": true,
+      "accept_partial_fills": true
+    },
+    "ui_refresh": {
+      "position_update_interval_seconds": 30,
+      "price_update_interval_seconds": 30
+    },
+    "logging": {
+      "folder": "logs",
+      "journal_dir": "journal",
+      "dated_folders": true,
+      "level": "INFO"
+    }
+  }
+}

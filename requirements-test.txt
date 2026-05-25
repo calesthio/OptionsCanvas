@@ -1,0 +1,20 @@
+# Testing Dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-html==4.1.1
+pytest-cov==4.1.0
+pytest-timeout==2.2.0
+hypothesis==6.92.1
+hypothesis[numpy]==6.92.1
+
+# Data & Analysis
+numpy==1.24.3
+pandas==2.0.3
+matplotlib==3.7.2
+
+# Utilities
+faker==20.1.0
+
+# AI Agents (optional - uncomment if using)
+# openai==1.6.1
+# anthropic==0.8.0
