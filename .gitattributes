@@ -1,0 +1,48 @@
+# Normalize line endings across platforms.
+# Without these rules, Windows checkouts can rewrite shell scripts with CRLF
+# endings, which breaks them on macOS/Linux (`/usr/bin/env bash\r` is not a
+# valid shebang). Pinning per file type avoids the trap.
+
+# Default: detect text vs binary automatically; normalize text to LF in repo.
+*               text=auto
+
+# Shell scripts MUST keep LF endings — they fail to execute on Unix with CRLF.
+*.sh            text eol=lf
+
+# Windows batch files MUST keep CRLF endings — some interpreters mishandle LF.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# Code: LF everywhere, regardless of where it was edited.
+*.py            text eol=lf
+*.js            text eol=lf
+*.ts            text eol=lf
+*.css           text eol=lf
+*.html          text eol=lf
+*.md            text eol=lf
+*.json          text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.toml          text eol=lf
+*.cfg           text eol=lf
+*.ini           text eol=lf
+*.txt           text eol=lf
+*.sql           text eol=lf
+
+# Binary assets: never touch.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.svg           text eol=lf
+*.pdf           binary
+*.db            binary
+*.sqlite        binary
+*.zip           binary
+*.tar.gz        binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.eot           binary
