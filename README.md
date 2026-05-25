@@ -3,13 +3,18 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](./LICENSE)
 
 
-## Trade options the way you read charts.
+## Stop getting your stops hunted.
 
-You're watching the underlying stock price. You see the setup forming. You know exactly where price is going, exactly where you're wrong, and exactly where you'll take profit.
+You see the setup forming on the SPY chart. You know exactly where you want to enter, exactly where you're wrong, exactly where you'll take profit — **all in SPY dollars, the chart you actually understand.**
 
-Then you tab over to your broker's options ticket and... pick an expiration. Scan a strike ladder. Type a quantity. Compute a stop in *option* dollars when your edge is in *underlying* dollars. Submit. Watch a market-maker tag your stop to the penny and reverse.
+Then you tab over to your broker. Pick an expiration. Scroll the strike ladder. Compute how many contracts $1,000 buys. Set the stop in *option premium* dollars (not the SPY level you actually understand). Submit. Watch a market-maker tap your stop on a wick fifteen seconds after the open.
 
-**OptionsCanvas fixes this.** Your chart *is* the order ticket. Levels live on the price you actually trade. Stops never touch the broker until they're real. Execution is two keystrokes.
+**OptionsCanvas fixes both halves of that.**
+
+- **Your stops live locally.** Not on the broker order book. Not visible to the HFTs that profit from hunting them. We only send a market order at the moment the underlying actually breaches your level.
+- **You never touch the options chain.** You drag your entry, SL, and TP directly on the underlying's chart — we pick the strike, the DTE, the contract count, and project the option premium and P&L in real time as you drag.
+
+Two-keystroke execution. Runs 100% on your machine. **The first open-source options platform that does this.**
 
 ![Overview](docs/screenshots/01-overview.png)
 
