@@ -289,6 +289,12 @@ PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md). Keep changes focused, 
 
 ---
 
+## If this is useful to you
+
+A star on the repo genuinely helps — it's how other options traders find it. Solo dev project with no marketing budget, so word-of-mouth is all there is. If you end up using OptionsCanvas day-to-day, opening an issue with what's working / not working is even more valuable than a star.
+
+---
+
 ## License
 
 AGPL-3.0-or-later. © 2026 calesthio. See [`LICENSE`](LICENSE).
