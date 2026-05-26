@@ -148,6 +148,23 @@ class ApiClient {
     }
 
     /**
+     * Get the actual list of strike prices the broker lists for a given
+     * underlying + DTE + contract type. Replaces increment-math snapping —
+     * the only correct way when the broker's strike grid varies per
+     * expiration (e.g. MSTR weeklies vs LEAPS).
+     * @param {string} symbol - Underlying symbol
+     * @param {number} dte - Days to expiration
+     * @param {string} type - 'call' or 'put'
+     * @returns {Promise<{strikes: number[], count: number}>}
+     */
+    async getSymbolStrikes(symbol, dte, type, options = {}) {
+        return this.get(`/api/symbol/strikes/${symbol}`, {
+            dte: dte,
+            type: type,
+        }, { signal: options.signal });
+    }
+
+    /**
      * Get real-time option quote
      * @param {string} optionSymbol - OCC option symbol
      * @returns {Promise<Object>} Option quote with bid, ask, last, mark

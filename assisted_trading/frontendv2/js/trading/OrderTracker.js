@@ -94,6 +94,43 @@ class OrderTracker {
             'market': 'Market'
         }[optionOrderType] || 'Limit @ Midpoint';
 
+        // Live-fill visibility block (only meaningful once the order is at
+        // the broker — `pending_fill`). Without these, the user sees
+        // "Limit @ Midpoint" and has zero idea what their actual limit is
+        // or how close it is to filling. Mid > Limit means we'll likely
+        // fill on the next bid lift; Mid < Limit means we're chasing.
+        const fmt = (v) => (v == null || isNaN(v)) ? '—' : `$${Number(v).toFixed(2)}`;
+        const showFillBlock = order.status === 'pending_fill';
+        const distToAsk = (order.limit_price != null && order.current_ask != null)
+            ? (order.current_ask - order.limit_price)
+            : null;
+        let fillHint = '';
+        if (showFillBlock && distToAsk != null) {
+            if (distToAsk <= 0) {
+                fillHint = `<span style="color:#0ecb81">at or above ask — should fill</span>`;
+            } else {
+                fillHint = `<span style="color:#a8aeb8">$${distToAsk.toFixed(2)} below ask</span>`;
+            }
+        }
+        const fillBlock = showFillBlock ? `
+            <div class="detail-item">
+                <span class="detail-label">Strike</span>
+                <span class="detail-value">${order.strike != null ? fmt(order.strike) : '—'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Limit Price</span>
+                <span class="detail-value">${fmt(order.limit_price)}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Bid / Ask</span>
+                <span class="detail-value">${fmt(order.current_bid)} / ${fmt(order.current_ask)}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Mark</span>
+                <span class="detail-value">${fmt(order.current_mark)} ${fillHint ? '· ' + fillHint : ''}</span>
+            </div>
+        ` : '';
+
         card.innerHTML = `
             <div class="position-header">
                 <div class="position-title">
@@ -131,6 +168,7 @@ class OrderTracker {
                     <span class="detail-value">$${order.equity_limit_price.toFixed(2)}</span>
                 </div>
                 ` : ''}
+                ${fillBlock}
             </div>
             <div class="position-actions" style="margin-top: 10px;">
                 <button class="action-btn sell" onclick="event.stopPropagation(); window.OrderTracker.cancelOrder('${order.order_id}')">

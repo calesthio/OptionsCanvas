@@ -60,7 +60,7 @@ class PriceLineManager {
      * @param {number} price - Stop loss price
      * @param {string} contractType - 'CALL' or 'PUT'
      */
-    addStopLossLine(optionSymbol, price, contractType) {
+    addStopLossLine(optionSymbol, price, contractType, opts = {}) {
         const lineId = `sl_${optionSymbol}`;
 
         // Remove existing line if any
@@ -72,13 +72,20 @@ class PriceLineManager {
             return;
         }
 
+        // `pending` = the user clicked "+ SL" to spawn a line but hasn't
+        // dragged + confirmed yet. Dashed style signals "this isn't saved
+        // yet — drag me." Once the drag/confirm flow persists it, the next
+        // PositionTracker.syncWithChart will re-render the line solid.
+        const pending = !!opts.pending;
         const priceLine = series.createPriceLine({
             price: price,
             color: '#f6465d',  // Red for stop loss
             lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Solid,
+            lineStyle: pending
+                ? LightweightCharts.LineStyle.Dashed
+                : LightweightCharts.LineStyle.Solid,
             axisLabelVisible: true,
-            title: 'SL',
+            title: pending ? 'SL (drag)' : 'SL',
         });
 
         this.priceLines.set(lineId, {
@@ -87,10 +94,11 @@ class PriceLineManager {
             optionSymbol: optionSymbol,
             price: price,
             contractType: contractType,
-            draggable: true
+            draggable: true,
+            pending: pending,
         });
 
-        console.log(`Added stop loss line: ${lineId} at $${price}`);
+        console.log(`Added stop loss line: ${lineId} at $${price}${pending ? ' (pending)' : ''}`);
     }
 
     /**
@@ -99,7 +107,7 @@ class PriceLineManager {
      * @param {number} price - Take profit price
      * @param {string} contractType - 'CALL' or 'PUT'
      */
-    addTakeProfitLine(optionSymbol, price, contractType) {
+    addTakeProfitLine(optionSymbol, price, contractType, opts = {}) {
         const lineId = `tp_${optionSymbol}`;
 
         // Remove existing line if any
@@ -111,13 +119,16 @@ class PriceLineManager {
             return;
         }
 
+        const pending = !!opts.pending;
         const priceLine = series.createPriceLine({
             price: price,
             color: '#0ecb81',  // Green for take profit
             lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Solid,
+            lineStyle: pending
+                ? LightweightCharts.LineStyle.Dashed
+                : LightweightCharts.LineStyle.Solid,
             axisLabelVisible: true,
-            title: 'TP',
+            title: pending ? 'TP (drag)' : 'TP',
         });
 
         this.priceLines.set(lineId, {
@@ -126,10 +137,11 @@ class PriceLineManager {
             optionSymbol: optionSymbol,
             price: price,
             contractType: contractType,
-            draggable: true
+            draggable: true,
+            pending: pending,
         });
 
-        console.log(`Added take profit line: ${lineId} at $${price}`);
+        console.log(`Added take profit line: ${lineId} at $${price}${pending ? ' (pending)' : ''}`);
     }
 
     /**

@@ -508,6 +508,58 @@ class AlpacaBroker(BrokerInterface):
                                             # within a single user flow, short enough
                                             # to retry the chain query soon after
 
+    # Cache for per-expiration strike lists: {(symbol, exp_iso, opt_type): (strikes, ts)}
+    _strikes_cache = {}
+    _STRIKES_CACHE_TTL = 300  # 5 min — strike grids don't churn during a session
+
+    def get_strikes_for_dte(self, underlying_symbol: str, dte: int,
+                            option_type: str = 'call') -> List[float]:
+        """
+        Return the ACTUAL sorted list of strike prices the broker lists for
+        this underlying at the given DTE + contract type.
+
+        This replaces increment-math everywhere it mattered: instead of
+        guessing "MSTR uses $2.50 increments" and synthesizing strikes, we
+        ask the broker what strikes actually exist. Solves the case where a
+        weekly expiration has a coarser grid ($2.50) than longer-dated ones
+        ($1.00), or vice versa — symbol-wide increment detection can't
+        capture that, but per-expiration listing does.
+        """
+        import time as _time
+        option_type = (option_type or 'call').lower()
+        today = date.today()
+        target = today + timedelta(days=max(0, dte))
+        cache_key = (underlying_symbol, target.isoformat(), option_type)
+
+        now = _time.time()
+        hit = self._strikes_cache.get(cache_key)
+        if hit and now - hit[1] < self._STRIKES_CACHE_TTL:
+            return hit[0]
+
+        try:
+            contracts = self.broker.get_option_contracts(
+                underlying_symbol=underlying_symbol,
+                dte=dte,
+                option_type=option_type,
+            )
+            strikes = sorted({float(c['strike_price']) for c in contracts})
+            if strikes:
+                self._strikes_cache[cache_key] = (strikes, now)
+                logger.info(
+                    "Strikes for %s %s DTE=%d (exp ~%s): %d strikes (range $%.2f-$%.2f)",
+                    underlying_symbol, option_type.upper(), dte, target,
+                    len(strikes), strikes[0], strikes[-1],
+                )
+            else:
+                logger.warning(
+                    "No strikes returned for %s %s DTE=%d", underlying_symbol, option_type, dte
+                )
+            return strikes
+        except Exception as e:
+            logger.error("get_strikes_for_dte failed for %s DTE=%d: %s",
+                         underlying_symbol, dte, e)
+            return []
+
     def get_strike_increment(self, underlying_symbol: str, price: float) -> float:
         """
         Get strike price increment for options.

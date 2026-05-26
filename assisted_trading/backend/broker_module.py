@@ -230,12 +230,19 @@ class BrokerModule:
                 type=option_type,
             )
 
-            # Prepare base request parameters
+            # Prepare base request parameters.
+            # NOTE: the alpaca-py field is `underlying_symbols` (PLURAL, list).
+            # Passing singular `underlying_symbol` makes pydantic SILENTLY drop
+            # the filter — the query then runs across ALL underlyings, and we
+            # rely on a post-filter to keep only ours. That's how we ended up
+            # missing valid MSTR strikes: the unfiltered global page didn't
+            # include them. Plural list = real server-side filter.
             req_params = {
-                'underlying_symbol': underlying_symbol,
+                'underlying_symbols': [underlying_symbol],
                 'expiration_date_gte': exp_start,
                 'expiration_date_lte': exp_end,
                 'type': option_type,
+                'limit': 10000,
             }
             
             # Add strike price filters if specified
@@ -414,6 +421,12 @@ class BrokerModule:
                 'filled_qty': int(order.filled_qty) if order.filled_qty else 0,
                 'filled_avg_price': float(order.filled_avg_price) if order.filled_avg_price else None,
                 'filled_at': order.filled_at,
+                # Limit price is what we sent to the broker — surface it so
+                # the UI can show "you're trying to buy at $X, current ask is
+                # $Y" instead of leaving the user blind to the fill condition.
+                'limit_price': float(order.limit_price) if getattr(order, 'limit_price', None) else None,
+                'qty': int(order.qty) if order.qty else None,
+                'side': order.side.value if getattr(order, 'side', None) else None,
             }
 
         except Exception as e:

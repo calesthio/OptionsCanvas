@@ -332,6 +332,38 @@ def get_symbol_config(symbol):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/symbol/strikes/<symbol>', methods=['GET'])
+def get_symbol_strikes(symbol):
+    """
+    Return the actual list of strike prices the broker lists for this
+    underlying at the requested DTE + contract type. Frontend snaps to
+    nearest strike in this list instead of synthesizing via increment math
+    — that's the only way to get it right for symbols like MSTR where
+    different expirations have different strike grids.
+
+    Query params:
+        dte (required, int)
+        type (required, 'call' or 'put')
+    """
+    try:
+        dte = int(request.args.get('dte', '0'))
+        opt_type = (request.args.get('type', 'call') or 'call').lower()
+        if opt_type not in ('call', 'put'):
+            return jsonify({'error': "type must be 'call' or 'put'"}), 400
+
+        strikes = broker.get_strikes_for_dte(symbol, dte, opt_type)
+        return jsonify({
+            'symbol': symbol,
+            'dte': dte,
+            'type': opt_type,
+            'strikes': strikes,
+            'count': len(strikes),
+        })
+    except Exception as e:
+        logger.error("Error getting strikes for %s: %s", symbol, e, exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/option/quote/<option_symbol>', methods=['GET'])
 def get_option_quote(option_symbol):
     """
@@ -548,10 +580,51 @@ def close_current_position():
 
 @app.route('/api/orders', methods=['GET'])
 def get_pending_orders():
-    """Get all pending/queued orders"""
-    global order_manager
+    """
+    Get all pending/queued orders.
+
+    For orders in `pending_fill` (broker has them, waiting to fill), we
+    enrich each row with:
+      - strike + option_symbol (already in our DB after transition)
+      - limit_price (the broker's limit we sent — was "midpoint at submit")
+      - current bid/ask/mark on the option (live quote)
+    so the UI can show the user where their order sits vs. the live market
+    instead of just "Limit @ Midpoint" with no numbers.
+    """
+    global order_manager, broker
     try:
         orders = order_manager.get_pending_orders()
+
+        # Enrich pending_fill rows with broker limit + live quote. Done
+        # server-side so the UI does one round-trip instead of N.
+        for order in orders:
+            if order.get('status') != 'pending_fill':
+                continue
+            broker_oid = order.get('broker_order_id')
+            opt_sym = order.get('option_symbol')
+
+            if broker_oid:
+                try:
+                    bo = broker.get_order_status(broker_oid)
+                    if bo.get('limit_price') is not None:
+                        order['limit_price'] = bo['limit_price']
+                    if bo.get('qty') is not None:
+                        order['broker_qty'] = bo['qty']
+                except Exception as e:
+                    # Don't fail the whole list if one broker fetch hiccups.
+                    logger.debug("Could not enrich order %s with broker data: %s",
+                                 order.get('order_id'), e)
+
+            if opt_sym:
+                try:
+                    q = broker.get_option_quote(opt_sym)
+                    order['current_bid'] = q.get('bid')
+                    order['current_ask'] = q.get('ask')
+                    order['current_mark'] = q.get('mark') or q.get('mid')
+                except Exception as e:
+                    logger.debug("Could not enrich order %s with quote: %s",
+                                 order.get('order_id'), e)
+
         return jsonify({'orders': orders})
     except Exception as e:
         logger.error(f"Error getting pending orders: {e}", exc_info=True)

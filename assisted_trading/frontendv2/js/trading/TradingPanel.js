@@ -14,6 +14,14 @@ class TradingPanel {
         this.dte = 0;
         this.positionSize = 1000;
         this.symbolConfig = null;
+        // Actual strike list from the broker for current (symbol, DTE, type).
+        // Authoritative — replaces increment-math snapping. Without this,
+        // symbols like MSTR (whose weekly strike grid is $2.50 in some
+        // expirations and irregular in others) end up trying to trade
+        // strikes the broker doesn't actually list, and orders fail at
+        // submission with "Strike $X not available".
+        this.validStrikes = [];
+        this.validStrikesKey = null;   // `${symbol}_${dte}_${type}`
         this.isReady = false;
 
         this.initializeElements();
@@ -84,7 +92,10 @@ class TradingPanel {
         // DTE change
         this.dteSelect?.addEventListener('change', (e) => {
             this.dte = parseInt(e.target.value);
-            this.updateOrderPreview();
+            // Strike grid varies by expiration — refresh actual strikes
+            // before the next preview so the selected strike snaps to a
+            // value the broker will accept.
+            this.loadValidStrikes().then(() => this.updateOrderPreview());
             // Emit event to notify other components about DTE change
             window.EventBus?.emit('trading_panel:dte_changed', { dte: this.dte });
         });
@@ -179,11 +190,17 @@ class TradingPanel {
             this.executeBtnText.textContent = `Buy ${type}`;
         }
 
-        this.updateOrderPreview();
+        // PUT and CALL chains can have slightly different strike grids on
+        // some symbols (rare but real), so re-fetch the strike list whenever
+        // the contract type changes.
+        this.loadValidStrikes().then(() => this.updateOrderPreview());
     }
 
     /**
-     * Adjust strike offset
+     * Adjust strike offset by one position in the broker's actual strike
+     * list (when we have it). Falls back to increment-math when the strike
+     * list hasn't loaded yet — keeps the UI responsive while still snapping
+     * to a real strike once the broker responds.
      * @param {number} direction - -1 for down, +1 for up
      */
     adjustStrike(direction) {
@@ -192,10 +209,21 @@ class TradingPanel {
             return;
         }
 
-        const increment = this.symbolConfig.strike_increment;
         this.strikeOffset += direction;
 
-        this.selectedStrike = this.atmStrike + (this.strikeOffset * increment);
+        if (this.validStrikes && this.validStrikes.length > 0) {
+            // ATM index = strike in the list closest to current price.
+            const atmIdx = this._nearestStrikeIndex(this.currentPrice);
+            const targetIdx = Math.min(
+                this.validStrikes.length - 1,
+                Math.max(0, atmIdx + this.strikeOffset)
+            );
+            this.selectedStrike = this.validStrikes[targetIdx];
+        } else {
+            // Fallback only — increment math, won't always land on a real strike.
+            const increment = this.symbolConfig.strike_increment;
+            this.selectedStrike = this.atmStrike + (this.strikeOffset * increment);
+        }
 
         // Update UI
         this.strikePriceEl.textContent = `$${this.selectedStrike.toFixed(2)}`;
@@ -206,20 +234,98 @@ class TradingPanel {
     }
 
     /**
-     * Calculate ATM strike from current price
+     * Find the index of the strike closest to `price` in this.validStrikes.
+     * Linear scan is fine — strike lists are O(100) entries.
+     */
+    _nearestStrikeIndex(price) {
+        if (!this.validStrikes || this.validStrikes.length === 0) return -1;
+        let bestIdx = 0;
+        let bestDiff = Math.abs(this.validStrikes[0] - price);
+        for (let i = 1; i < this.validStrikes.length; i++) {
+            const d = Math.abs(this.validStrikes[i] - price);
+            if (d < bestDiff) {
+                bestDiff = d;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
+    }
+
+    /**
+     * Compute the selected strike from current price + offset.
+     *
+     * Preferred path: snap to nearest strike in the broker's actual list
+     * (this.validStrikes), then step by index for the offset. This is the
+     * ONLY correct way for symbols whose strike grid varies by expiration
+     * (MSTR weeklies, low-priced names with mixed grids).
+     *
+     * Fallback path: increment math, used only when the strike list hasn't
+     * arrived yet. The fallback may land on a non-existent strike; the
+     * subsequent loadValidStrikes() call re-snaps it to a real one.
      */
     calculateStrike() {
         if (!this.symbolConfig || !this.currentPrice) {
             return;
         }
 
-        // Round to nearest strike increment
-        const increment = this.symbolConfig.strike_increment;
-        this.atmStrike = Math.round(this.currentPrice / increment) * increment;
-        this.selectedStrike = this.atmStrike + (this.strikeOffset * increment);
+        if (this.validStrikes && this.validStrikes.length > 0) {
+            const atmIdx = this._nearestStrikeIndex(this.currentPrice);
+            this.atmStrike = this.validStrikes[atmIdx];
+            const targetIdx = Math.min(
+                this.validStrikes.length - 1,
+                Math.max(0, atmIdx + this.strikeOffset)
+            );
+            this.selectedStrike = this.validStrikes[targetIdx];
+        } else {
+            const increment = this.symbolConfig.strike_increment;
+            this.atmStrike = Math.round(this.currentPrice / increment) * increment;
+            this.selectedStrike = this.atmStrike + (this.strikeOffset * increment);
+        }
 
         // Update UI
         this.strikePriceEl.textContent = `$${this.selectedStrike.toFixed(2)}`;
+    }
+
+    /**
+     * Fetch the broker's actual strike list for (currentSymbol, dte,
+     * contractType) and re-snap the selected strike to a real value.
+     * Idempotent + cancellable via this._symbolAborter.
+     */
+    async loadValidStrikes() {
+        if (!this.currentSymbol || this.dte === undefined || this.dte === null) return;
+        const type = (this.contractType || 'CALL').toLowerCase();
+        const key = `${this.currentSymbol}_${this.dte}_${type}`;
+        const signal = this._symbolAborter?.signal;
+        const requestedSymbol = this.currentSymbol;
+        const requestedDte = this.dte;
+        const requestedType = type;
+
+        try {
+            const resp = await window.ApiClient.getSymbolStrikes(
+                requestedSymbol, requestedDte, requestedType, { signal }
+            );
+            // Correlation-ID guard — same pattern as loadValidContracts.
+            if (requestedSymbol !== this.currentSymbol ||
+                requestedDte !== this.dte ||
+                requestedType !== (this.contractType || 'CALL').toLowerCase()) {
+                console.log(`loadValidStrikes: stale (${key}, now ${this.currentSymbol}_${this.dte}_${(this.contractType||'').toLowerCase()})`);
+                return;
+            }
+            this.validStrikes = Array.isArray(resp?.strikes) ? resp.strikes : [];
+            this.validStrikesKey = key;
+            console.log(`Strike list for ${key}: ${this.validStrikes.length} strikes`);
+
+            // Re-snap whatever the user was looking at to a strike that
+            // actually exists. Preserves their +/- offset intent.
+            this.calculateStrike();
+            this.strikeOffsetEl.querySelector('span').textContent =
+                `Offset: ${this.strikeOffset >= 0 ? '+' : ''}${this.strikeOffset}`;
+            await this.updateOrderPreview();
+        } catch (error) {
+            if (error.name === 'AbortError') throw error;
+            console.warn('loadValidStrikes failed; falling back to increment math:', error);
+            // Leave validStrikes alone — keep whatever we had, or empty.
+        }
     }
 
     /**
@@ -245,7 +351,18 @@ class TradingPanel {
 
             this.currentPrice = this.symbolConfig.current_price;
 
+            // Reset stale strike list from the PREVIOUS symbol before any
+            // calculateStrike() runs — otherwise we'd briefly snap to a
+            // strike from the wrong symbol's grid.
+            this.validStrikes = [];
+            this.validStrikesKey = null;
+
             await this.loadValidContracts();
+            if (isStale()) return;
+
+            // Now that DTE is set by loadValidContracts(), fetch the real
+            // strike grid for this (symbol, DTE, type) and snap to it.
+            await this.loadValidStrikes();
             if (isStale()) return;
 
             this.calculateStrike();

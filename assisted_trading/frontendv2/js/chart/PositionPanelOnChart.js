@@ -108,11 +108,41 @@ class PositionPanelOnChart {
         const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
         const pnlColor = pnl >= 0 ? '#0ecb81' : '#f6465d';
 
+        // Inline "+ SL" / "+ TP" affordance — only when the corresponding
+        // level isn't set yet. Outlined (no fill) so they read as secondary
+        // to CLOSE. Clicking spawns a draggable dashed price line; the
+        // existing DragHandles flow handles drag → confirm → save.
+        const hasSL = pos.stop_loss_price != null;
+        const hasTP = pos.take_profit_price != null;
+        const chipBase = `
+            background: transparent;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            line-height: 14px;
+        `;
+        const slChip = hasSL ? '' : `
+            <button class="add-sl-btn" title="Drop a draggable SL line" style="
+                ${chipBase}
+                border: 1px dashed #f6465d;
+                color: #f6465d;
+            ">+ SL</button>`;
+        const tpChip = hasTP ? '' : `
+            <button class="add-tp-btn" title="Drop a draggable TP line" style="
+                ${chipBase}
+                border: 1px dashed #0ecb81;
+                color: #0ecb81;
+            ">+ TP</button>`;
+
         panel.innerHTML = `
             <span style="font-weight: bold; padding: 2px 4px; border-radius: 2px; background: ${color}30; color: ${color}">${pos.contract_type}</span>
             <span style="font-weight: 600;">${pos.remaining_contracts}c</span>
             <span style="color: ${pnlColor}; font-weight: bold;">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</span>
             <span style="font-size: 9px; opacity: 0.8;">(${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</span>
+            ${slChip}
+            ${tpChip}
             <button class="close-btn" style="
                 background: ${pnlColor};
                 color: white;
@@ -133,6 +163,86 @@ class PositionPanelOnChart {
                 window.PositionTracker.sellContracts(pos.option_symbol, pos.remaining_contracts);
             }
         };
+
+        // Wire add-SL / add-TP. innerHTML reassignment above means we have
+        // to re-bind every update tick — same pattern as the close button.
+        const slBtn = panel.querySelector('.add-sl-btn');
+        if (slBtn) {
+            slBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.spawnPendingLevel(pos, 'stop_loss');
+            };
+        }
+        const tpBtn = panel.querySelector('.add-tp-btn');
+        if (tpBtn) {
+            tpBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.spawnPendingLevel(pos, 'take_profit');
+            };
+        }
+    }
+
+    /**
+     * Drop a draggable, dashed "pending" SL or TP line near the position's
+     * underlying entry, then immediately put it into drag mode so it
+     * follows the cursor onto the chart. One click on the chart drops it
+     * and triggers the existing confirm flow.
+     *
+     * Anchor: small adverse-side offset from CURRENT underlying price (not
+     * entry) so the line is in the user's visual hot zone and always
+     * passes DragHandles.validatePrice from the start, even when the
+     * position is deep in drawdown.
+     */
+    spawnPendingLevel(pos, type) {
+        if (!window.PriceLineManager) {
+            console.warn('spawnPendingLevel: PriceLineManager not ready');
+            return;
+        }
+
+        // Prefer live underlying price (matches what DragHandles.validatePrice
+        // checks against). Fall back to entry if we don't have it yet.
+        const current = Number(window.TradingPanel?.lastUnderlyingPrice)
+            || Number(pos.underlying_entry_price);
+        if (!current || isNaN(current)) {
+            window.Toast?.warning('Current price unavailable; cannot spawn line.');
+            return;
+        }
+
+        // 2% off the current price, on the side validatePrice will accept.
+        // Far enough to be obvious; user is meant to drag it where they want.
+        const isCall = pos.contract_type === 'CALL';
+        let startPrice;
+        if (type === 'stop_loss') {
+            startPrice = isCall ? current * 0.98 : current * 1.02;
+            window.PriceLineManager.addStopLossLine(
+                pos.option_symbol, startPrice, pos.contract_type, { pending: true }
+            );
+        } else {
+            startPrice = isCall ? current * 1.02 : current * 0.98;
+            window.PriceLineManager.addTakeProfitLine(
+                pos.option_symbol, startPrice, pos.contract_type, { pending: true }
+            );
+        }
+
+        const lineId = type === 'stop_loss'
+            ? `sl_${pos.option_symbol}`
+            : `tp_${pos.option_symbol}`;
+
+        // Kick into drag mode RIGHT NOW. The chart's pointermove listener
+        // will start moving the line as soon as the cursor enters the chart
+        // area; pointerup on the chart drops it and pops the confirm UI.
+        // This is the "drag the chip onto the chart" UX — no hunting for a
+        // tiny line, no precision grab required.
+        if (window.DragHandles?.enabled) {
+            window.DragHandles.startDrag(lineId, startPrice);
+            window.DragHandles.setCursor('grabbing');
+        }
+
+        const label = type === 'stop_loss' ? 'Stop Loss' : 'Take Profit';
+        window.Toast?.info(
+            `Move cursor onto the chart, then click to drop your ${label}.`,
+            5000
+        );
     }
 
     /**
