@@ -1145,18 +1145,27 @@ class TradingEngine:
 
             if option_symbol not in processed_broker_symbols:
                 try:
-                    # This is an external position not tracked by us
-                    logger.info(f"Found untracked broker position: {option_symbol}")
-
                     is_option = self._is_option_symbol(option_symbol)
+                    # Only log untracked OPTION positions (rare).
+                    # Stock positions in the user's broker account are not
+                    # something OptionsCanvas manages — quiet them.
+                    if is_option:
+                        logger.info(f"Found untracked broker option position: {option_symbol}")
+
                     underlying_symbol = self._parse_underlying_from_option(option_symbol)
                     strike, contract_type = self._parse_option_details(option_symbol)
 
-                    # Get underlying price
-                    try:
-                        underlying_price = self.broker.get_current_price(underlying_symbol)
-                    except:
-                        underlying_price = 0.0
+                    # Use the position's current_price as the underlying proxy.
+                    # For stock positions the symbol IS the underlying, so this is
+                    # exact. For untracked option positions it's an approximation
+                    # but avoids firing one extra broker quote per untracked
+                    # position on every /api/position poll — that was costing
+                    # ~500ms × N positions of wall time and starving every other
+                    # REST endpoint, which prevented the trading panel's
+                    # readiness check from ever completing (Buy button stayed
+                    # disabled). If a precise underlying mid is needed later,
+                    # fetch it on demand from the UI, not on every poll.
+                    underlying_price = broker_pos.get('current_price', 0.0) or 0.0
 
                     positions_with_details.append({
                         'symbol': underlying_symbol,

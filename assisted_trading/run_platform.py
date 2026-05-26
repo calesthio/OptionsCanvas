@@ -9,6 +9,18 @@ Boots the Flask + SocketIO server in one of two modes:
                     services boot in-process and the SPA takes over.
 """
 
+# CRITICAL: gevent.monkey.patch_all() MUST run before anything imports
+# `requests`, `urllib3`, `socket`, `threading`, or `ssl`. Otherwise those
+# modules get cached in their unpatched (blocking) form and every alpaca-py
+# REST call freezes the entire gevent event loop — including SocketIO's
+# ping/pong heartbeats, which then time out and disconnect the WebSocket.
+# That manifests as: "WebSocket disconnected: ping timeout", repeated
+# reconnect loops, REST endpoints (symbol_config, contracts, option/quote)
+# hanging for seconds, and a permanently-disabled Buy button because the
+# frontend's `isReady` check never completes.
+from gevent import monkey
+monkey.patch_all()
+
 import sys
 import os
 import json

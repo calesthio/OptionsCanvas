@@ -39,7 +39,11 @@ class ChartTradingController {
             snapshot?.symbol &&
             Number.isFinite(currentPrice) && currentPrice > 0 &&
             Number.isFinite(strike) && strike > 0 &&
-            Number.isFinite(dte) && dte > 0 &&
+            // 0 DTE is a real trading case (SPY/QQQ/IWM/etc. have daily expirations
+            // and same-day options are one of the platform's primary use cases).
+            // Reject only negative or non-finite values; `panelReady` already
+            // separates "loaded with dte=0" from "uninitialized".
+            Number.isFinite(dte) && dte >= 0 &&
             Number.isFinite(premium) && premium > 0 &&
             Number.isFinite(contracts) && contracts > 0
         );

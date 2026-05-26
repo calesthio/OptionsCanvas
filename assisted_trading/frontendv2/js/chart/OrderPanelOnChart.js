@@ -937,10 +937,11 @@ class OrderPanelOnChart {
         if (this.controller && typeof this.controller.canSubmit === 'function') {
             return this.controller.canSubmit() === true;
         }
-        // Legacy fallback if controller is not wired (also tightens dte check:
-        // a stale dte = 0 must not gate readiness as ready).
+        // Legacy fallback if controller is not wired.
+        // 0 DTE is a valid trading case (same-day SPY/QQQ/IWM expirations).
+        // `tp.isReady` already gates against the uninitialized state.
         const tp = this.tradingPanel;
-        return !!(tp && tp.isReady && tp.symbolConfig && tp.selectedStrike > 0 && Number.isFinite(tp.dte) && tp.dte > 0);
+        return !!(tp && tp.isReady && tp.symbolConfig && tp.selectedStrike > 0 && Number.isFinite(tp.dte) && tp.dte >= 0);
     }
 
     syncTradingReadiness() {
