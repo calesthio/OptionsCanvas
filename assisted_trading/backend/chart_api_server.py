@@ -9,7 +9,6 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import pytz
 import threading
@@ -31,8 +30,11 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app with SocketIO
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'trading-secret-key-change-in-production'
-CORS(app)  # Enable CORS for frontend
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+# CORS + CSRF are configured by security.register_security() which is called
+# from run_platform.start_server() once the bind port is known. SocketIO's
+# cors_allowed_origins is set to the same allowlist there too. We start with
+# a no-origin default so an accidental boot order can't expose anything.
+socketio = SocketIO(app, cors_allowed_origins=[], async_mode='gevent')
 
 # Global variables
 trading_engine = None

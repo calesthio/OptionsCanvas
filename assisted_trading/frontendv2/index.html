@@ -4,6 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSRF token: injected by the server per-process; ApiClient reads this
+         and sends it on every POST/PUT/DELETE. Without it, a malicious page
+         the user happens to visit could fire requests to localhost:5001 in
+         their name. See assisted_trading/backend/security.py. -->
+    <meta name="csrf-token" content="{{CSRF_TOKEN}}">
     <title>OptionsCanvas</title>
 
     <!-- TradingView Lightweight Charts -->

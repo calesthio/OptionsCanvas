@@ -5,6 +5,15 @@
 class ApiClient {
     constructor(baseUrl = window.location.origin) {
         this.baseUrl = baseUrl;
+        // CSRF token is rendered into <meta name="csrf-token"> by the server.
+        // Required on every state-changing request — without it, the backend
+        // returns 403. Stops a malicious page the user happens to visit from
+        // POSTing to localhost:5001 in their name. See backend/security.py.
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        this.csrfToken = meta ? meta.getAttribute('content') : '';
+        if (!this.csrfToken) {
+            console.warn('ApiClient: no CSRF token found — POSTs will be rejected');
+        }
     }
 
     /**
@@ -47,6 +56,7 @@ class ApiClient {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.csrfToken,
                 },
                 body: JSON.stringify(data)
             });

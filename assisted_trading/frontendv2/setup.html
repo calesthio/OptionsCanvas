@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!-- CSRF token: injected by the server per-process; included on every wizard POST. -->
+<meta name="csrf-token" content="{{CSRF_TOKEN}}" />
 <title>OptionsCanvas — Setup</title>
 <style>
   :root {
@@ -348,8 +350,14 @@
     el.textContent = "";
   }
 
+  // CSRF token rendered by the server into <meta name="csrf-token">. Required
+  // on every wizard POST — backend rejects requests without it.
+  const CSRF_TOKEN = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+
   async function api(path, body) {
-    const opts = { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json" } };
+    const headers = { "Content-Type": "application/json" };
+    if (body) headers["X-CSRF-Token"] = CSRF_TOKEN;
+    const opts = { method: body ? "POST" : "GET", headers };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(path, opts);
     return await res.json();

@@ -154,25 +154,41 @@ def start_server(port: int, open_browser: bool = True):
 
     # Import the Flask app (routes register at import time).
     from backend.chart_api_server import app, socketio
-    from backend import setup_routes
-    from flask import send_from_directory, redirect
+    from backend import setup_routes, security
+    from flask import send_from_directory, redirect, Response
 
     frontend_dir = Path(__file__).parent / 'frontendv2'
+
+    # ---- Security: CORS allowlist + CSRF enforcement ----
+    # MUST happen before any route registers user-mutable side effects.
+    security.register_security(app, socketio, port=port)
 
     # ---- Wire setup wizard ----
     app.register_blueprint(setup_routes.setup_bp)
     setup_routes.register_finalize_callback(lambda: boot_trading_services(port))
+
+    # Helper: serve an HTML file with the per-process CSRF token injected so
+    # the frontend can read it from a <meta> tag and include it on every POST.
+    def _serve_html_with_csrf(filename: str) -> Response:
+        path = frontend_dir / filename
+        html = path.read_text(encoding='utf-8')
+        html = security.inject_csrf_token(html)
+        return Response(html, mimetype='text/html')
 
     # ---- Root route — gate on setup ----
     @app.route('/')
     def serve_root():
         if setup_routes.needs_setup() or not _services_initialized:
             return redirect('/setup')
-        return send_from_directory(str(frontend_dir), 'index.html')
+        return _serve_html_with_csrf('index.html')
 
     @app.route('/<path:path>')
     def serve_static(path):
         # /setup and /api/setup/* are handled by the blueprint and won't match this.
+        # Inject CSRF token into HTML files (currently only index.html lands here,
+        # but future HTML pages get the same treatment automatically).
+        if path.endswith('.html'):
+            return _serve_html_with_csrf(path)
         return send_from_directory(str(frontend_dir), path)
 
     # ---- Decide initial mode ----

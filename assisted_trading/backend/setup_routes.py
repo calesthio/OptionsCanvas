@@ -172,8 +172,14 @@ setup_bp = Blueprint("setup", __name__)
 
 @setup_bp.route("/setup", methods=["GET"])
 def serve_wizard():
-    """Serve the setup wizard SPA."""
-    return send_from_directory(str(FRONTEND_DIR), "setup.html")
+    """Serve the setup wizard SPA with the per-process CSRF token injected.
+
+    The wizard's POSTs (test-broker, save-broker, onboard, finalize) all
+    require the token now — same enforcement as the main trading UI."""
+    from flask import Response
+    from .security import inject_csrf_token
+    html = (FRONTEND_DIR / "setup.html").read_text(encoding="utf-8")
+    return Response(inject_csrf_token(html), mimetype="text/html")
 
 
 @setup_bp.route("/api/setup/status", methods=["GET"])
