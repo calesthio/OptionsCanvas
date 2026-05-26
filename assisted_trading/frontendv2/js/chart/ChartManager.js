@@ -205,9 +205,21 @@ class ChartManager {
             const seriesData = this.candlestickSeries.data();
             console.log(`ChartManager: Series now has ${seriesData.length} bars after setData`);
 
-            // Fit content to show all data
+            // Fit content to show all data. timeScale().fitContent() only
+            // resets the TIME axis. The PRICE axis retains the previous
+            // symbol's range — switching from SPY ($750) to AMZN ($268)
+            // leaves the price axis at 744-755, so all AMZN bars end up
+            // off-screen and the chart looks blank. Force the right price
+            // scale back into autoScale mode so it re-fits to the new data.
             console.log(`ChartManager: Fitting content...`);
             this.chart.timeScale().fitContent();
+            try {
+                this.chart.priceScale('right').applyOptions({ autoScale: true });
+            } catch (e) {
+                // Some Lightweight Charts versions expose this differently;
+                // not catastrophic if it fails, but log so we know.
+                console.warn('ChartManager: could not autoScale price axis:', e);
+            }
 
             console.log(`Loaded ${response.bars.length} bars for ${symbol}. Range: ${new Date(response.bars[0].time * 1000).toISOString()} to ${new Date(response.bars[response.bars.length - 1].time * 1000).toISOString()}`);
 

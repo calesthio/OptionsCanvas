@@ -742,63 +742,42 @@ def get_market_status():
 
 @app.route('/api/day_pnl', methods=['GET'])
 def get_day_pnl():
-    """Get day P&L from trading journal and current position"""
+    """Get day P&L: realized (from today's closes) + unrealized (from open positions).
+
+    Reads realized P&L from the SQLite journal_entries table — that's the
+    source of truth, written automatically every time a position closes (see
+    PositionManagerV2._record_daily_aggregate_for_date). The legacy code path
+    here read from `journal_dir/<date>/trades.json` which no code actually
+    writes to in v0.1.x, so Day P&L always showed $0 after a close. Now we
+    query the same table /api/journal already uses.
+    """
     try:
-        # Get today's date
         today = datetime.now().strftime('%Y-%m-%d')
 
-        # Initialize day P&L
-        day_pnl = 0.0
-
-        # Read journal and sum up realized P&L for today
+        realized_pnl = 0.0
         try:
-            # We need to reconstruct get_journal_path logic or import it
-            # Simple version:
-            if journal_dir:
-                day_dir = journal_dir / today
-                path = day_dir / 'trades.json'
-                
-                if path.exists():
-                    with open(path, 'r') as f:
-                        journal = json.load(f)
-                else:
-                    journal = {'trades': []}
-            else:
-                 journal = {'trades': []}
+            entries = db_manager.get_journal_entries(start_date=today, end_date=today)
+            if entries:
+                # journal_entries is upserted on every close — there is at most
+                # one row per date. Take the first (and only) match.
+                realized_pnl = float(entries[0].get('net_pnl', 0.0) or 0.0)
+        except Exception as e:
+            logger.warning("Could not read journal_entries for %s: %s", today, e)
 
-        except Exception:
-            journal = {'trades': []}
-
-        for trade in journal['trades']:
-            if trade['timestamp'].startswith(today):
-                event_type = trade['event_type']
-                data = trade['data']
-
-                # Add realized P&L from position closes
-                # NOTE: stop_loss_triggered and take_profit_triggered already call close_position internally,
-                # which logs a 'position_closed' event. So we should ONLY count 'position_closed' to avoid double-counting.
-                # If we want separate tracking, we need to modify the close flow to not log position_closed when triggered by SL/TP.
-                if event_type == 'position_closed' and 'close_record' in data:
-                    day_pnl += data['close_record'].get('pnl', 0.0)
-
-                # FIX: Removed stop_loss_triggered from day P&L to prevent double-counting
-                # (it's already counted as position_closed)
-
-                # FIX: Add take_profit_triggered in case it's logged separately
-                # if event_type == 'take_profit_triggered' and 'close_record' in data:
-                #     day_pnl += data['close_record'].get('pnl', 0.0)
-
-        # Add unrealized P&L from current positions if any exist
-        if position_manager.has_any_position():
-            position_details = trading_engine.get_position_details()
-            if position_details:
-                # position_details is a list, iterate over all positions
-                for pos in position_details:
-                    day_pnl += pos.get('unrealized_pnl', 0.0)
+        # Unrealized P&L from currently-open positions
+        unrealized_pnl = 0.0
+        try:
+            if position_manager.has_any_position():
+                for pos in trading_engine.get_position_details() or []:
+                    unrealized_pnl += float(pos.get('unrealized_pnl', 0.0) or 0.0)
+        except Exception as e:
+            logger.warning("Could not compute unrealized P&L: %s", e)
 
         return jsonify({
-            'day_pnl': day_pnl,
-            'date': today
+            'day_pnl': realized_pnl + unrealized_pnl,
+            'realized_pnl': realized_pnl,
+            'unrealized_pnl': unrealized_pnl,
+            'date': today,
         })
 
     except Exception as e:
