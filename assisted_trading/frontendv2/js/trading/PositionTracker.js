@@ -209,7 +209,7 @@ class PositionTracker {
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">DTE</div>
-                    <div class="detail-value">${position.dte || 'N/A'}</div>
+                    <div class="detail-value">${position.dte ?? 'N/A'}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Contracts</div>

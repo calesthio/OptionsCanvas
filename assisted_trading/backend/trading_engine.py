@@ -58,16 +58,29 @@ class TradingEngine:
         """Get broker positions through a short TTL cache with graceful fallback.
 
         Returns:
-            (positions: list, fresh: bool)
-            fresh=True  → call just succeeded (or cache hit within TTL of a success)
-            fresh=False → broker call failed; we're serving stale data. Callers
-                          MUST NOT use this as evidence that positions were closed.
+            (positions: list, just_fetched: bool)
+            just_fetched=True  → we just hit the broker and got an authoritative
+                                 response in this call.
+            just_fetched=False → we're serving cached or stale data. The cache
+                                 may be up to TTL seconds old, OR the last
+                                 broker call failed. Either way, callers MUST
+                                 NOT do destructive reconciliation against this
+                                 data — a position might exist on the broker
+                                 but not in this cached snapshot.
+
+        NB: the previous version of this method returned `fresh=True` on cache
+        hits, which caused get_position_details() to delete tracked positions
+        whenever the cache happened to be older than the position's creation.
+        That manifested as "position opened via platform shows as External
+        broker position" — the position got written to our DB, then the very
+        next /api/position poll deleted it because the stale cache didn't see
+        it on the broker yet. Renaming the flag is the fix.
         """
         now = time.time()
         cache = self._positions_cache
 
         if cache['fresh'] and (now - cache['fetched_at']) < self._positions_cache_ttl:
-            return cache['data'], True
+            return cache['data'], False  # cache hit — NOT just-fetched
 
         try:
             positions = self.broker.get_all_positions()
@@ -83,8 +96,6 @@ class TradingEngine:
             return positions, True
         except Exception as e:
             self._positions_failure_streak += 1
-            # Log loudly on first failure of a streak, then suppress duplicates.
-            # Every 30 consecutive failures, emit one reminder.
             if self._positions_failure_streak == 1:
                 logger.warning(
                     "Failed to get broker positions (serving cached/stale data): %s", e
@@ -1055,24 +1066,66 @@ class TradingEngine:
         positions_with_details = []
 
         # Get broker positions through the cached/error-tolerant accessor.
-        # `fresh=True` means we just got an authoritative answer from the broker.
-        # `fresh=False` means we're serving stale cache (broker call failed) — in
-        # that case we MUST NOT do destructive reconciliation, because we can't
-        # actually tell which positions still exist on the broker.
-        broker_positions, fresh = self._fetch_broker_positions()
+        # `just_fetched=True` only when this call hit the broker NOW.
+        # Cache hits and stale-after-failure both return False — destructive
+        # reconciliation against either is unsafe (we'd delete tracked
+        # positions that exist but the cached snapshot didn't see yet).
+        broker_positions, just_fetched = self._fetch_broker_positions()
         broker_symbols = {pos['symbol'] for pos in broker_positions}
 
         # Clean up tracked positions that no longer exist in broker — ONLY when
-        # we just got a fresh authoritative answer. A transient network blip
-        # must never wipe out our local tracking (and the server-side stops
-        # attached to those positions).
-        if fresh:
+        # we just got a fresh authoritative answer from the broker right now.
+        # Stale cache / transient network errors must never wipe out our local
+        # tracking (and the server-side stops attached to those positions).
+        if just_fetched:
             tracked_positions = self.position_manager.get_all_positions()
             for position in tracked_positions:
                 option_symbol = position['option_symbol']
                 if option_symbol not in broker_symbols:
                     logger.info(f"Removing stale tracked position {option_symbol} - not found in broker")
                     self.position_manager.delete_position(option_symbol)
+
+        # Auto-import untracked broker OPTION positions. The most common cause
+        # of an untracked broker option position is "we placed it via the
+        # platform but the position-creation step missed it" — e.g. an earlier
+        # bug deleted it, the platform restarted between order placement and
+        # fill, or the order was placed before this DB existed. Self-heal by
+        # creating a placeholder tracked entry (no SL/TP — user can drag
+        # them onto the chart). Without this, the position is visible but
+        # unmanageable.
+        if just_fetched:
+            for broker_pos in broker_positions:
+                opt_sym = broker_pos.get('symbol', '')
+                if not self._is_option_symbol(opt_sym):
+                    continue  # stocks aren't ours to manage
+                if self.position_manager.has_position(opt_sym):
+                    continue
+                try:
+                    underlying = self._parse_underlying_from_option(opt_sym)
+                    strike, ctype = self._parse_option_details(opt_sym)
+                    qty = int(broker_pos.get('qty', 0) or 0)
+                    if qty <= 0:
+                        continue
+                    self.position_manager.open_position(
+                        option_symbol=opt_sym,
+                        symbol=underlying,
+                        contract_type=ctype,
+                        strike=strike,
+                        dte=0,  # unknown without parsing OCC date; UI accepts 0
+                        total_contracts=qty,
+                        entry_price=float(broker_pos.get('avg_entry_price', 0.0) or 0.0),
+                        underlying_entry_price=float(broker_pos.get('current_price', 0.0) or 0.0),
+                        stop_loss_price=None,
+                        take_profit_price=None,
+                        source_order_id=None,
+                    )
+                    logger.info(
+                        "Auto-imported untracked broker option position: %s (%d contracts) — "
+                        "drag SL/TP on the chart to attach exits",
+                        opt_sym, qty,
+                    )
+                except Exception as e:
+                    logger.warning("Auto-import failed for %s: %s", opt_sym, e)
 
         # Track which broker positions we've processed
         processed_broker_symbols = set()
