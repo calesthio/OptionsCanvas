@@ -79,12 +79,37 @@ def register_security(app: Flask, socketio, *, port: int = 5001) -> None:
     CORS(app, origins=origins, supports_credentials=True,
          allow_headers=["Content-Type", "X-CSRF-Token"])
 
-    # SocketIO has its own CORS config separate from Flask.
-    socketio.server_options = getattr(socketio.server_options, "__dict__", {}) or {}
+    # SocketIO has its own CORS layer separate from Flask. python-socketio
+    # reads `cors_allowed_origins` live during the WebSocket handshake, so
+    # we tighten it here AFTER module-load (which used "*" so we wouldn't
+    # accidentally reject our own legitimate connections before the port
+    # was known).
+    #
+    # Two access paths because python-socketio exposes this differently
+    # across versions. We set BOTH (idempotent) so the active version
+    # gets the right value; whichever attribute the live handshake reads,
+    # it sees the locked-down allowlist.
+    set_count = 0
     try:
-        socketio.server.eio.cors_allowed_origins = origins  # python-socketio
-    except Exception:
-        pass  # newer versions config differently; the constructor arg covers it
+        socketio.server.eio.cors_allowed_origins = origins
+        set_count += 1
+    except AttributeError:
+        pass
+    try:
+        socketio.server.cors_allowed_origins = origins
+        set_count += 1
+    except AttributeError:
+        pass
+    if set_count == 0:
+        # Library shape changed; HTTP-side CSRF still protects state changes,
+        # but loud-warn so it's not silent.
+        logger.warning(
+            "Could not tighten SocketIO cors_allowed_origins post-init. "
+            "WebSocket will accept any origin. HTTP CSRF token still required "
+            "for state-changing requests."
+        )
+    else:
+        logger.info("Security: SocketIO cors_allowed_origins locked to %s", origins)
 
     # ---- Layer 2: CSRF token check on every state-changing request -----
     @app.before_request

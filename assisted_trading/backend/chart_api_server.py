@@ -32,9 +32,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'trading-secret-key-change-in-production'
 # CORS + CSRF are configured by security.register_security() which is called
 # from run_platform.start_server() once the bind port is known. SocketIO's
-# cors_allowed_origins is set to the same allowlist there too. We start with
-# a no-origin default so an accidental boot order can't expose anything.
-socketio = SocketIO(app, cors_allowed_origins=[], async_mode='gevent')
+# cors_allowed_origins is also tightened there. We start with "*" here
+# (rather than [] which would reject every WebSocket handshake before
+# register_security gets a chance to run); register_security narrows it
+# to localhost-only before socketio.run() actually accepts traffic.
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
 # Global variables
 trading_engine = None
