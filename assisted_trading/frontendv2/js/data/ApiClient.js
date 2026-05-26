@@ -22,7 +22,7 @@ class ApiClient {
      * @param {Object} params - Query parameters
      * @returns {Promise<Object>} Response data
      */
-    async get(endpoint, params = {}) {
+    async get(endpoint, params = {}, options = {}) {
         try {
             const url = new URL(`${this.baseUrl}${endpoint}`);
             Object.keys(params).forEach(key => {
@@ -31,7 +31,7 @@ class ApiClient {
                 }
             });
 
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: options.signal });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -39,6 +39,9 @@ class ApiClient {
 
             return await response.json();
         } catch (error) {
+            // Aborts are expected when the user switches symbols mid-request;
+            // let them propagate silently — the caller decides what to do.
+            if (error.name === 'AbortError') throw error;
             console.error(`API GET error (${endpoint}):`, error);
             throw error;
         }
@@ -50,7 +53,7 @@ class ApiClient {
      * @param {Object} data - Request body
      * @returns {Promise<Object>} Response data
      */
-    async post(endpoint, data = {}) {
+    async post(endpoint, data = {}, options = {}) {
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 method: 'POST',
@@ -58,7 +61,8 @@ class ApiClient {
                     'Content-Type': 'application/json',
                     'X-CSRF-Token': this.csrfToken,
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                signal: options.signal,
             });
 
             if (!response.ok) {
@@ -68,6 +72,7 @@ class ApiClient {
 
             return await response.json();
         } catch (error) {
+            if (error.name === 'AbortError') throw error;
             console.error(`API POST error (${endpoint}):`, error);
             throw error;
         }
@@ -112,8 +117,8 @@ class ApiClient {
             timeframe: options.timeframe || '5Min',
             limit: options.limit || 1000,
             start: options.start,
-            end: options.end
-        });
+            end: options.end,
+        }, { signal: options.signal });
     }
 
     /**
@@ -122,8 +127,10 @@ class ApiClient {
      * @param {boolean} refresh - Force refresh cache
      * @returns {Promise<Object>} Valid contracts with DTE and expiration dates
      */
-    async getSymbolContracts(symbol, refresh = false) {
-        return this.get(`/api/symbol/contracts/${symbol}`, { refresh: refresh.toString() });
+    async getSymbolContracts(symbol, refresh = false, options = {}) {
+        return this.get(`/api/symbol/contracts/${symbol}`,
+            { refresh: refresh.toString() },
+            { signal: options.signal });
     }
 
     /**
@@ -132,12 +139,12 @@ class ApiClient {
      * @param {number} price - Current price (optional)
      * @returns {Promise<Object>} Symbol config
      */
-    async getSymbolConfig(symbol, price = null) {
+    async getSymbolConfig(symbol, price = null, options = {}) {
         const params = {};
         if (price !== null) {
             params.price = price;
         }
-        return this.get(`/api/symbol/config/${symbol}`, params);
+        return this.get(`/api/symbol/config/${symbol}`, params, { signal: options.signal });
     }
 
     /**
@@ -145,8 +152,8 @@ class ApiClient {
      * @param {string} optionSymbol - OCC option symbol
      * @returns {Promise<Object>} Option quote with bid, ask, last, mark
      */
-    async getOptionQuote(optionSymbol) {
-        return this.get(`/api/option/quote/${optionSymbol}`);
+    async getOptionQuote(optionSymbol, options = {}) {
+        return this.get(`/api/option/quote/${optionSymbol}`, {}, { signal: options.signal });
     }
 
     // ========== Trading Operations ==========

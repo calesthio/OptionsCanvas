@@ -127,8 +127,25 @@ class TradingPanel {
         // Close all positions
         this.closeAllBtn?.addEventListener('click', () => this.closeAllPositions());
 
-        // Listen for symbol changes
+        // Listen for symbol changes.
+        //
+        // We use an AbortController per "symbol context" so that any in-flight
+        // requests from the previous symbol (getSymbolConfig, getSymbolContracts,
+        // getOptionQuote) are cancelled at the network layer when the user
+        // switches symbols. Without this, a slow response for AAPL could land
+        // after the user has already moved to MRVL and overwrite the panel
+        // state with stale data — which can cause real money to flow into
+        // the wrong contract if they click Buy in that window. See the
+        // industry pattern: AbortController + correlation-ID guards. The
+        // controller is paired with a `requestedSymbol` check inside each
+        // async function for belt-and-suspenders (some operations may slip
+        // past the abort if it fires between `await` and `.then`).
+        this._symbolAborter = null;
         window.EventBus.on('chart:symbol_loaded', (data) => {
+            // Cancel everything in-flight for the previous symbol
+            this._symbolAborter?.abort();
+            this._symbolAborter = new AbortController();
+
             this.isReady = false;
             this.currentSymbol = data.symbol;
             window.ChartTradingController?.setTradingSnapshot(this.getTradingSnapshot());
@@ -206,27 +223,46 @@ class TradingPanel {
     }
 
     /**
-     * Load symbol configuration
+     * Load symbol configuration. Cancellable via this._symbolAborter so a
+     * rapid symbol switch doesn't leave a stale config landing into state.
      */
     async loadSymbolConfig() {
+        // Capture the abort signal + the symbol at entry. The signal cancels
+        // the network requests; the correlation check (requestedSymbol vs
+        // this.currentSymbol) handles the case where abort fires between
+        // `await` resolution and the `.then` body.
+        const signal = this._symbolAborter?.signal;
+        const requestedSymbol = this.currentSymbol;
+
+        const isStale = () => requestedSymbol !== this.currentSymbol;
+
         try {
-            // Load symbol config (tick sizes, etc)
-            this.symbolConfig = await window.ApiClient.getSymbolConfig(this.currentSymbol);
+            this.symbolConfig = await window.ApiClient.getSymbolConfig(
+                requestedSymbol, null, { signal }
+            );
+            if (isStale()) return;
             console.log('Symbol config loaded:', this.symbolConfig);
 
             this.currentPrice = this.symbolConfig.current_price;
 
-            // Load valid contracts for this symbol
             await this.loadValidContracts();
+            if (isStale()) return;
 
             this.calculateStrike();
             await this.updateOrderPreview();
+            if (isStale()) return;
+
             this.isReady = true;
             const snapshot = this.getTradingSnapshot();
             window.ChartTradingController?.setTradingSnapshot(snapshot);
             window.EventBus?.emit('trading_panel:ready', snapshot);
 
         } catch (error) {
+            // Aborts are EXPECTED on symbol switching — don't treat as errors.
+            if (error.name === 'AbortError') {
+                console.log(`loadSymbolConfig aborted (was: ${requestedSymbol}, now: ${this.currentSymbol})`);
+                return;
+            }
             this.isReady = false;
             window.ChartTradingController?.setTradingSnapshot(this.getTradingSnapshot());
             console.error('Error loading symbol config:', error);
@@ -262,12 +298,15 @@ class TradingPanel {
         // this fetch is in flight, the response that lands later belongs to the
         // OLD symbol and must NOT overwrite the dropdown for the NEW one.
         const requestedSymbol = this.currentSymbol;
+        const signal = this._symbolAborter?.signal;
         try {
-            const contractsData = await window.ApiClient.getSymbolContracts(requestedSymbol);
+            const contractsData = await window.ApiClient.getSymbolContracts(
+                requestedSymbol, false, { signal }
+            );
             console.log('Valid contracts loaded:', contractsData);
 
-            // If the user switched symbols mid-fetch, abort silently — the
-            // newer load is on its way for the current symbol.
+            // Correlation-ID guard: even with AbortController, a response can
+            // slip through the abort window. Reject anything for a stale symbol.
             if (requestedSymbol !== this.currentSymbol) {
                 console.log(`loadValidContracts: stale response for ${requestedSymbol} (now on ${this.currentSymbol}), ignoring`);
                 return;
@@ -335,6 +374,10 @@ class TradingPanel {
             }
 
         } catch (error) {
+            // Re-throw aborts so the top-level loadSymbolConfig handler swallows
+            // them quietly. Treating an abort as an "error" here would leave
+            // isReady=false on the new symbol after symbol switching.
+            if (error.name === 'AbortError') throw error;
             console.error('Error loading valid contracts:', error);
         }
     }
@@ -347,6 +390,13 @@ class TradingPanel {
             return;
         }
 
+        // Capture the symbol context — if the user switches symbols while the
+        // option-quote request is in flight, we MUST NOT let a stale quote
+        // overwrite this.lastQuote (which would cascade into wrong premium,
+        // wrong contract count, wrong P&L projections, etc.).
+        const requestedSymbol = this.currentSymbol;
+        const signal = this._symbolAborter?.signal;
+
         try {
             // Get option symbol
             const optionSymbol = this.formatOptionSymbol();
@@ -356,7 +406,11 @@ class TradingPanel {
             let premiumSource = 'Est.'; // Indicator of estimate vs real
 
             try {
-                const quoteResponse = await window.ApiClient.getOptionQuote(optionSymbol);
+                const quoteResponse = await window.ApiClient.getOptionQuote(
+                    optionSymbol, { signal }
+                );
+                if (requestedSymbol !== this.currentSymbol) return;  // stale
+
                 this.lastQuote = quoteResponse; // Store for other components to use
 
                 if (quoteResponse.success && quoteResponse.mark > 0) {
@@ -369,6 +423,7 @@ class TradingPanel {
                     premiumSource = 'Est.'; // No quote available
                 }
             } catch (quoteError) {
+                if (quoteError.name === 'AbortError') throw quoteError;
                 console.warn('Could not fetch option quote, using estimate:', quoteError);
                 premiumSource = 'Est.';
             }
@@ -408,6 +463,9 @@ class TradingPanel {
             }
 
         } catch (error) {
+            // Aborts during symbol switch should propagate quietly to the
+            // top-level handler. Only real errors get logged.
+            if (error.name === 'AbortError') throw error;
             console.error('Error updating preview:', error);
         }
     }

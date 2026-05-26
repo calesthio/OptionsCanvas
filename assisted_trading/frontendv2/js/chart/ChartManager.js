@@ -172,6 +172,16 @@ class ChartManager {
 
         console.log(`Loading ${symbol} ${this.currentTimeframe} data...`);
 
+        // Cancel any in-flight bar load for the previous symbol. Without this,
+        // a slow getHistoricalBars from the OLD symbol can land AFTER the new
+        // symbol's response and overwrite the chart with stale bars from a
+        // different ticker — the kind of bug that makes traders take real
+        // money trades against the wrong instrument.
+        this._loadAborter?.abort();
+        this._loadAborter = new AbortController();
+        const signal = this._loadAborter.signal;
+        const requestedSymbol = symbol;
+
         try {
             // Unsubscribe from previous symbol BEFORE updating currentSymbol
             if (this.currentSymbol && this.currentSymbol !== symbol) {
@@ -184,8 +194,14 @@ class ChartManager {
             // Fetch historical data
             const response = await window.ApiClient.getHistoricalBars(symbol, {
                 timeframe: this.currentTimeframe,
-                limit: 1000
+                limit: 1000,
+                signal,
             });
+            // Correlation-ID belt-and-suspenders check.
+            if (requestedSymbol !== this.currentSymbol) {
+                console.log(`ChartManager: stale bars for ${requestedSymbol}, now on ${this.currentSymbol}`);
+                return;
+            }
 
             if (!response || !response.bars) {
                 throw new Error('No data received');
@@ -242,8 +258,14 @@ class ChartManager {
             }
 
         } catch (error) {
-            console.error('Error loading chart data:', error);
-            window.EventBus.emit('chart:error', { symbol, error });
+            // Aborts are expected on symbol switching; suppress quietly so we
+            // don't fire a misleading chart:error event for them.
+            if (error.name === 'AbortError') {
+                console.log(`ChartManager: load aborted for ${symbol} (now on ${this.currentSymbol})`);
+            } else {
+                console.error('Error loading chart data:', error);
+                window.EventBus.emit('chart:error', { symbol, error });
+            }
         } finally {
             this.isLoading = false;
         }

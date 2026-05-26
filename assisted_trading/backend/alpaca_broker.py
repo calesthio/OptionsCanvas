@@ -501,25 +501,46 @@ class AlpacaBroker(BrokerInterface):
             return 0.01
 
     # Cache for strike increments: {symbol: (increment, timestamp)}
-    _strike_increment_cache = {}
-    _STRIKE_CACHE_TTL = 3600  # 1 hour
+    _strike_increment_cache = {}            # verified (chain-derived) values
+    _strike_increment_fallback_cache = {}   # heuristic fallbacks (don't poison long-TTL)
+    _STRIKE_CACHE_TTL = 3600                # 1 hour for verified values
+    _STRIKE_FALLBACK_TTL = 60               # 60s for heuristic — long enough to dedupe
+                                            # within a single user flow, short enough
+                                            # to retry the chain query soon after
 
     def get_strike_increment(self, underlying_symbol: str, price: float) -> float:
         """
         Get strike price increment for options.
 
         Primary: derives from live option chain data near ATM.
-        Cached per-symbol for 1 hour.
         Fallback: hardcoded heuristics if API call fails.
+
+        Cache strategy (added in v0.1.8 to prevent fallback poisoning):
+          - "verified" cache: only chain-derived values, 1 hour TTL.
+            These are trustworthy and stable per symbol.
+          - "fallback" cache: heuristic guesses, 60 second TTL.
+            If the chain query fails on first load and we cache a bad
+            heuristic for 1 hour, every order for that symbol gets a wrong
+            strike for the rest of the hour. The short TTL means a transient
+            API failure self-heals on the next request instead of poisoning.
         """
         import time as _time
         from collections import Counter
 
-        # Check cache first
-        cached = self._strike_increment_cache.get(underlying_symbol)
-        if cached:
-            increment, cached_at = cached
-            if _time.time() - cached_at < self._STRIKE_CACHE_TTL:
+        now = _time.time()
+
+        # Prefer verified — it's the long-TTL trustworthy bucket.
+        verified = self._strike_increment_cache.get(underlying_symbol)
+        if verified:
+            increment, cached_at = verified
+            if now - cached_at < self._STRIKE_CACHE_TTL:
+                return increment
+
+        # Fall through to short-TTL fallback bucket (only used when verified is stale).
+        fallback = self._strike_increment_fallback_cache.get(underlying_symbol)
+        if fallback:
+            increment, cached_at = fallback
+            if now - cached_at < self._STRIKE_FALLBACK_TTL:
                 return increment
 
         try:
@@ -566,23 +587,43 @@ class AlpacaBroker(BrokerInterface):
             if len(strikes) < 2:
                 raise ValueError("Not enough strikes to compute increment")
 
-            # Calculate increments between adjacent strikes
+            # Compute increment ONLY from strikes IMMEDIATELY adjacent to ATM.
+            # The old algorithm widened to ±$20 from ATM and picked min — but
+            # chains often have $1 strikes at deep ITM/OTM (for hedging) AND
+            # $2.5 strikes near ATM. Picking min returns $1 even though the
+            # right "where to actually trade" increment is $2.5. For MSTR at
+            # $161 the widened range had 9× $1 increments and 12× $2.5; the
+            # old algorithm picked $1, leading to strikes like $161 that
+            # don't exist (real chain has $160 and $162.5).
+            #
+            # New algorithm: find the strike closest to ATM, take 4 neighbors
+            # on each side (9-strike window), compute adjacent diffs in that
+            # window only, and pick the mode (most common). This is what
+            # actual trading platforms do for "find the ATM increment."
+            closest_idx = min(range(len(strikes)), key=lambda i: abs(strikes[i] - price))
+            lo = max(0, closest_idx - 4)
+            hi = min(len(strikes), closest_idx + 5)
+            atm_window = strikes[lo:hi]
+
             increments = []
-            for i in range(1, len(strikes)):
-                diff = round(strikes[i] - strikes[i - 1], 2)
+            for i in range(1, len(atm_window)):
+                diff = round(atm_window[i] - atm_window[i - 1], 2)
                 if diff > 0:
                     increments.append(diff)
 
             if not increments:
-                raise ValueError("No valid increments found")
+                raise ValueError("No valid increments in ATM window")
 
-            # Use smallest common increment (appears >= 3 times)
+            # Use the MOST COMMON increment in the ATM window (mode), not min.
+            # If the window happens to span an increment boundary (e.g. $1 wing
+            # transitioning to $2.5 near ATM), mode still picks the dominant
+            # value at ATM rather than the smaller wing value.
             counter = Counter(increments)
-            common = [inc for inc, count in counter.items() if count >= 3]
-            if common:
-                result = min(common)
-            else:
-                result = counter.most_common(1)[0][0]
+            result = counter.most_common(1)[0][0]
+            logger.info(
+                "Strike increment for %s near $%.2f: $%s (from ATM window %s, diffs %s)",
+                underlying_symbol, price, result, atm_window, dict(counter),
+            )
 
             # Cache it
             self._strike_increment_cache[underlying_symbol] = (result, _time.time())
@@ -590,16 +631,23 @@ class AlpacaBroker(BrokerInterface):
             return result
 
         except Exception as e:
-            logger.warning(f"Could not detect strike increment for {underlying_symbol}: {e}, using heuristic fallback")
-            # Fallback heuristics
+            logger.warning(
+                "Could not detect strike increment for %s: %s, using heuristic fallback",
+                underlying_symbol, e,
+            )
+            # Fallback heuristics — cached briefly so we retry the real chain
+            # query soon. Caching the heuristic for 1 hour (the previous bug)
+            # made a single chain-query failure poison the symbol for an hour.
             if underlying_symbol in ['SPY', 'QQQ', 'IWM', 'DIA']:
-                return 1.0
+                fallback_val = 1.0
             elif price > 200:
-                return 5.0
+                fallback_val = 5.0
             elif price > 100:
-                return 2.5
+                fallback_val = 2.5
             else:
-                return 1.0
+                fallback_val = 1.0
+            self._strike_increment_fallback_cache[underlying_symbol] = (fallback_val, _time.time())
+            return fallback_val
 
     def validate_connection(self) -> Tuple[bool, str]:
         """
