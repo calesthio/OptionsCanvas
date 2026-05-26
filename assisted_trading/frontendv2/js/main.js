@@ -79,11 +79,19 @@ async function initializeApp() {
         const drawingManager = new DrawingManager(chartManager);
         window.DrawingManager = drawingManager; // Make global
 
-        // Initialize DragHandles for draggable SL/TP lines (kept available for
-        // existing-position management but NOT enabled by default — the chart
-        // order panel owns SL/TP drag interaction now).
+        // Initialize DragHandles for the SL/TP price lines on the chart.
+        // The OrderPanelOnChart pill owns SL/TP setup for *new* orders. Once
+        // a position is OPEN, its SL/TP appear as horizontal price lines on
+        // the chart (registered with PriceLineManager) and trailing them
+        // requires dragging the LINE itself. DragHandles is what listens for
+        // that — it scopes its handlers to ignore clicks inside the pill
+        // container, so the two systems don't conflict.
+        //
+        // Previously this was left disabled and the chart's existing-position
+        // SL/TP lines became read-only, breaking trailing entirely.
         const dragHandles = new DragHandles(chartManager, priceLineManager);
         window.DragHandles = dragHandles; // Make global
+        dragHandles.enable();
 
         // Initialize ChartTradingController (single source of truth for on-chart
         // trade interaction state). Loaded as ESM in index.html, exposed on window.
