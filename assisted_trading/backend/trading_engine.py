@@ -407,9 +407,57 @@ class TradingEngine:
                 )
 
             if not option_symbol:
+                # Build a precise error explaining WHY the contract wasn't found —
+                # was it the DTE or the strike? Look up valid values to put in the
+                # error message so the user (and any caller surfacing this) knows
+                # exactly how to retry.
+                valid_dtes: list = []
+                valid_strikes: list = []
+                try:
+                    expirations = self.broker.get_available_expirations(symbol, max_dte=90)
+                    valid_dtes = sorted({e['dte'] for e in expirations})
+                except Exception as exc:
+                    logger.warning("Could not fetch valid DTEs for %s: %s", symbol, exc)
+
+                if not valid_dtes:
+                    error_msg = f"No options found for {symbol}."
+                elif dte not in valid_dtes:
+                    # DTE is the problem — list what's actually available
+                    error_msg = (
+                        f"DTE={dte} not available for {symbol}. "
+                        f"Valid DTEs: {', '.join(str(d) for d in valid_dtes)}."
+                    )
+                else:
+                    # DTE is valid, so the strike must be off — look up the chain
+                    # at that DTE and either name the nearest or list a few.
+                    try:
+                        chain_at_dte = self.broker.get_option_contracts(
+                            underlying_symbol=symbol,
+                            dte=dte,
+                            option_type=contract_type.lower(),
+                        )
+                        valid_strikes = sorted({float(c['strike_price']) for c in chain_at_dte})
+                    except Exception as exc:
+                        logger.warning("Could not fetch strikes for %s DTE=%d: %s", symbol, dte, exc)
+
+                    if valid_strikes:
+                        nearest = min(valid_strikes, key=lambda s: abs(s - strike))
+                        error_msg = (
+                            f"Strike ${strike:.2f} not available for {symbol} "
+                            f"{contract_type} DTE={dte}. Nearest valid: ${nearest:.2f}."
+                        )
+                    else:
+                        error_msg = (
+                            f"Strike ${strike:.2f} not available for {symbol} "
+                            f"{contract_type} DTE={dte}."
+                        )
+
+                logger.error("Could not find option contract: %s", error_msg)
                 return {
                     'success': False,
-                    'error': 'Could not find suitable option contract'
+                    'error': error_msg,
+                    'valid_dtes': valid_dtes,
+                    'valid_strikes': valid_strikes,
                 }
 
             # Calculate contracts

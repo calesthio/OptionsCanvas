@@ -258,11 +258,28 @@ class TradingPanel {
      * Load and populate valid tradable contracts
      */
     async loadValidContracts() {
+        // Capture the symbol AT REQUEST TIME — if the user switches symbols while
+        // this fetch is in flight, the response that lands later belongs to the
+        // OLD symbol and must NOT overwrite the dropdown for the NEW one.
+        const requestedSymbol = this.currentSymbol;
         try {
-            const contractsData = await window.ApiClient.getSymbolContracts(this.currentSymbol);
+            const contractsData = await window.ApiClient.getSymbolContracts(requestedSymbol);
             console.log('Valid contracts loaded:', contractsData);
 
+            // If the user switched symbols mid-fetch, abort silently — the
+            // newer load is on its way for the current symbol.
+            if (requestedSymbol !== this.currentSymbol) {
+                console.log(`loadValidContracts: stale response for ${requestedSymbol} (now on ${this.currentSymbol}), ignoring`);
+                return;
+            }
+
             const contracts = contractsData.contracts || [];
+
+            // Persist the list so executeOrder() can pre-flight validate the
+            // selected DTE against the actual broker chain — catches stale
+            // DTE values that survive a symbol switch.
+            this.validContracts = contracts;
+            this.validContractsForSymbol = requestedSymbol;
 
             // Update DTE dropdown
             if (this.dteSelect && contracts.length > 0) {
@@ -462,6 +479,28 @@ class TradingPanel {
      * Execute order
      */
     async executeOrder() {
+        // Pre-flight: the selected DTE must actually exist in the current
+        // symbol's chain. The dropdown is filtered, but a race during symbol
+        // switching can leave the DTE value stale (the new symbol's
+        // loadValidContracts hasn't completed yet, or the previous symbol's
+        // value carried over). Fail fast with a clear message rather than
+        // letting the backend reject the order with a vague "Could not find
+        // suitable option contract".
+        if (this.validContracts && this.validContractsForSymbol === this.currentSymbol) {
+            const validDtes = this.validContracts.map(c => c.dte);
+            if (validDtes.length > 0 && !validDtes.includes(this.dte)) {
+                const nearest = validDtes.reduce(
+                    (a, b) => Math.abs(b - this.dte) < Math.abs(a - this.dte) ? b : a
+                );
+                window.Toast?.warning(
+                    `DTE=${this.dte} not available for ${this.currentSymbol}. ` +
+                    `Valid: ${validDtes.join(', ')}. Try DTE=${nearest}.`,
+                    6000
+                );
+                return;
+            }
+        }
+
         // Check if connected to WebSocket (optional safety check)
         if (window.DataStream && !window.DataStream.isConnected()) {
             window.Toast.warning('WebSocket disconnected - order placement may be slower', 3000);

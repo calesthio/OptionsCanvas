@@ -162,24 +162,30 @@ class DataStream {
      * @param {string} timeframe - Timeframe (default '1Min')
      */
     unsubscribeChart(symbol, timeframe = '1Min') {
-        if (!this.socket || !this.connected) {
-            return;
-        }
-
         const key = `${symbol}_${timeframe}`;
-
         if (!this.subscriptions.has(key)) {
             return;
         }
 
-        console.log(`Unsubscribing from ${symbol} ${timeframe}...`);
+        // ALWAYS remove from the local set, even if the WebSocket is
+        // currently disconnected. If we skip this when disconnected, the
+        // entry sticks around in `this.subscriptions` and gets re-emitted
+        // by resubscribe() on the next reconnect — so the user switches
+        // symbols during a connection blip, the backend never hears the
+        // unsubscribe, and on reconnect it gets re-subscribed forever.
+        this.subscriptions.delete(key);
 
+        if (!this.socket || !this.connected) {
+            // Backend won't be told now; it'll catch up on the client's
+            // next disconnect (handle_disconnect cleans streaming_symbols).
+            return;
+        }
+
+        console.log(`Unsubscribing from ${symbol} ${timeframe}...`);
         this.socket.emit('unsubscribe_chart', {
             symbol: symbol,
             timeframe: timeframe
         });
-
-        this.subscriptions.delete(key);
     }
 
     /**

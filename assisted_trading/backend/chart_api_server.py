@@ -50,9 +50,33 @@ journal_dir = None
 contract_validator = None
 
 # Streaming state
-streaming_symbols = set()  # Set of symbols being streamed
+streaming_symbols = set()  # Set of (symbol, timeframe) being streamed
+# Per-session subscription tracking so we can prune streaming_symbols when
+# clients disconnect or unsubscribe. Without this, a closed browser tab leaves
+# its (symbol, timeframe) entries in streaming_symbols forever and the
+# streaming loop keeps fetching bars for symbols nobody is watching.
+client_subscriptions = {}  # sid -> set of (symbol, timeframe)
 streaming_thread = None
 streaming_active = False
+
+
+def _release_subscription(symbol: str, timeframe: str, sid: str = None) -> None:
+    """Remove one client's claim on a (symbol, timeframe). If no client has
+    it anymore, stop streaming for it."""
+    if sid is not None:
+        subs = client_subscriptions.get(sid)
+        if subs:
+            subs.discard((symbol, timeframe))
+            if not subs:
+                client_subscriptions.pop(sid, None)
+    # Is anyone still subscribed?
+    still_wanted = any((symbol, timeframe) in s for s in client_subscriptions.values())
+    if not still_wanted:
+        streaming_symbols.discard((symbol, timeframe))
+        logger.info(
+            "Stopped streaming %s %s — no clients subscribed",
+            symbol, timeframe,
+        )
 
 
 def initialize_services(broker_config, assisted_config):
@@ -584,8 +608,17 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Handle client disconnection"""
-    logger.info(f"Client disconnected: {request.sid}")
+    """Handle client disconnection. Clean up streaming for any (symbol,
+    timeframe) this client had subscribed to — if no other client wants it,
+    stop polling it. Without this, every closed tab / disconnect leaks
+    entries into streaming_symbols and the background loop keeps fetching
+    bars for symbols nobody is watching."""
+    sid = request.sid
+    logger.info(f"Client disconnected: {sid}")
+    subs = client_subscriptions.pop(sid, set())
+    for (symbol, timeframe) in subs:
+        # _release_subscription with sid=None because we already popped
+        _release_subscription(symbol, timeframe, sid=None)
 
 
 @socketio.on('subscribe_chart')
@@ -610,7 +643,8 @@ def handle_subscribe_chart(data):
         room = f"chart_{symbol}_{timeframe}"
         join_room(room)
 
-        # Add to streaming symbols
+        # Track per-client so we can release the streaming claim on disconnect.
+        client_subscriptions.setdefault(request.sid, set()).add((symbol, timeframe))
         streaming_symbols.add((symbol, timeframe))
 
         # Start streaming thread if not already running
@@ -650,8 +684,12 @@ def handle_unsubscribe_chart(data):
         room = f"chart_{symbol}_{timeframe}"
         leave_room(room)
 
-        # Remove from streaming symbols
-        streaming_symbols.discard((symbol, timeframe))
+        # Release this client's claim. Only stops streaming if no other
+        # client wants the same (symbol, timeframe). Previous version did an
+        # unconditional discard which broke multi-client setups; we keep
+        # the per-client semantics even though OptionsCanvas is single-user
+        # so the data flow stays correct if someone opens a second tab.
+        _release_subscription(symbol, timeframe, sid=request.sid)
 
         logger.info(f"Client {request.sid} unsubscribed from {symbol} {timeframe}")
         emit('unsubscribed', {
