@@ -786,6 +786,78 @@ def start_streaming_thread():
         logger.info("Started chart streaming thread")
 
 
+# ---------------------------------------------------------------------------
+# Risk monitor — SERVER-SIDE SL/TP polling.
+#
+# Previously, check_stop_loss / check_take_profit ran only inside the
+# /api/position request handler, meaning stops only checked when the browser
+# happened to be polling. A closed tab, throttled background tab, network
+# blip, or user-on-lunch meant stops simply did not fire — defeating the
+# whole "stops live locally, not on the broker book" promise. This loop
+# runs unconditionally as long as the server is up.
+# ---------------------------------------------------------------------------
+
+risk_monitor_thread = None
+risk_monitor_active = False
+RISK_MONITOR_INTERVAL = 2.0  # seconds — fast enough to catch typical wicks
+
+
+def start_risk_monitor_thread():
+    """Start the background thread that polls SL/TP/pending-orders."""
+    global risk_monitor_thread, risk_monitor_active
+
+    if risk_monitor_thread is None or not risk_monitor_thread.is_alive():
+        risk_monitor_active = True
+        risk_monitor_thread = threading.Thread(target=risk_monitor_loop, daemon=True)
+        risk_monitor_thread.start()
+        logger.info("Started risk monitor thread (SL/TP polling every %.1fs)",
+                    RISK_MONITOR_INTERVAL)
+
+
+def risk_monitor_loop():
+    """
+    Server-side loop that checks every open position's SL/TP and processes
+    pending orders on a fixed cadence. Failures in any single iteration are
+    caught + logged so the loop keeps running — losing this loop silently
+    is the worst-case outcome.
+
+    Market-hours gating: options trade 9:30–16:00 ET, so a SL/TP "trigger"
+    outside that window can't actually close anything (any sell we'd send
+    rejects or queues). We still call the loop on its 2s cadence — the
+    cost is one is_market_open() check — but skip the broker work when
+    closed. At the open, the very first tick after 9:30:00 sweeps every
+    position, so an overnight gap through your SL fires on the next tick
+    (not waiting for the browser to poll).
+    """
+    global risk_monitor_active
+    logger.info("Risk monitor loop started (gated on market hours)")
+
+    last_open_state = None  # log open/close transitions once each
+
+    while risk_monitor_active:
+        try:
+            is_open = market_hours.is_market_open() if market_hours else True
+
+            # Log only when state flips, so we don't spam every 2s.
+            if is_open != last_open_state:
+                logger.info(
+                    "Risk monitor: market %s — SL/TP checks %s",
+                    "OPEN" if is_open else "CLOSED",
+                    "active" if is_open else "paused",
+                )
+                last_open_state = is_open
+
+            if is_open:
+                # Process pending orders first so a freshly-filled order gets
+                # its SL/TP checked in the same tick.
+                trading_engine.process_pending_orders()
+                trading_engine.check_stop_loss()
+                trading_engine.check_take_profit()
+        except Exception as e:
+            logger.error("Risk monitor iteration failed: %s", e, exc_info=True)
+        time.sleep(RISK_MONITOR_INTERVAL)
+
+
 def stream_chart_updates():
     """
     Background thread that streams chart updates to subscribed clients
@@ -930,6 +1002,11 @@ def run_chart_server(alpaca_config, assisted_config, host='127.0.0.1', port=5000
     """
     # Initialize services
     initialize_services(alpaca_config, assisted_config)
+
+    # Start the server-side SL/TP poller. CRITICAL — without this, stops
+    # only check when the browser asks for /api/position, so a closed tab
+    # = no SL protection.
+    start_risk_monitor_thread()
 
     # Run server with SocketIO
     logger.info(f"Starting Chart API server on {host}:{port}")
