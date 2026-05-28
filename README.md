@@ -16,6 +16,8 @@ Then you tab over to your broker. Pick an expiration. Scroll the strike ladder. 
 
 Two-keystroke execution. Runs 100% on your machine. **The first open-source options platform that does this.**
 
+https://github.com/user-attachments/assets/ebae0480-6214-45ae-9435-1231a1a855fb
+
 ![Overview](docs/screenshots/01-overview.png)
 
 ---
